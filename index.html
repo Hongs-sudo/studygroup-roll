@@ -117,7 +117,17 @@
   }
   @keyframes sp{to{transform:rotate(360deg)}}
   .whoami{font-size:11.5px;color:var(--ink-soft);margin-left:8px}
-  #logoutBtn[hidden]{display:none}
+  #logoutBtn[hidden],#installBtn[hidden]{display:none}
+  #installBtn{border-color:var(--accent);color:#a44c17}
+  #installBtn:hover{background:var(--accent-soft)}
+  .howto{text-align:left;font-size:13px;line-height:1.8}
+  .howto h4{margin:14px 0 4px;font-size:13.5px;color:var(--ink)}
+  .howto h4:first-child{margin-top:0}
+  .howto p{margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.75}
+  .howto kbd{
+    background:var(--off);border:1px solid var(--rule);border-radius:4px;
+    padding:1px 5px;font-size:11.5px;font-family:inherit;
+  }
 
   /* ---------- top bar ---------- */
   .bar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
@@ -235,8 +245,8 @@
   .days-chips i.empty{background:#f0e6e6;color:#a06a6a}
   td.daysCell .cell{word-break:normal;overflow:hidden}
   td.daysCell{cursor:pointer}
-  td.daysCell.wk,td.noteCell.wk{position:relative}
-  td.daysCell.wk::before,td.noteCell.wk::before{
+  td.daysCell.wk{position:relative}
+  td.daysCell.wk::before{
     content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;
     background:var(--accent);
   }
@@ -364,6 +374,7 @@
         <option value="portrait">A4 세로</option>
       </select>
       <button class="btn primary" id="saveBtn">저장</button>
+      <button class="btn" id="installBtn" hidden>앱 설치</button>
       <button class="btn" id="logoutBtn" hidden>로그아웃</button>
       <button class="btn" id="printBtn">인쇄</button>
     </div>
@@ -452,10 +463,21 @@
     </div>
   </div>
 
+  <div class="modal no-print" id="installModal" hidden>
+    <div class="mbox">
+      <h2>앱으로 설치하기</h2>
+      <p>홈 화면이나 바탕화면에 아이콘이 생기고, 주소창 없이 앱처럼 열립니다.</p>
+      <div class="howto" id="installHow"></div>
+      <div class="mrow">
+        <button class="btn ghost" id="closeInstall">닫기</button>
+      </div>
+    </div>
+  </div>
+
   <p class="hint">
     <b>컴퓨터</b> 클릭으로 선택 · 드래그와 Shift+클릭으로 여러 칸 · 더블클릭이나 Enter로 편집 · Delete로 비우기 · Ctrl(⌘)+S로 저장<br>
     <b>아이패드 · 휴대폰</b> 한 번 눌러 선택, 같은 칸을 한 번 더 누르면 편집 · 「여러 칸 선택」을 켜면 칸을 하나씩 눌러 담을 수 있어요 · 표는 좌우로 밀어서 보고, 번호와 학생명은 그대로 붙어 있습니다<br>
-    <b>특이사항</b> 주차마다 따로 적힙니다 · 칸 오른쪽 위 점은 그 주에만 적어둔 내용이라는 표시 · 모든 주에 같이 남기려면 고친 뒤 뜨는 「모든 주에 적용」을 누르세요<br>
+    <b>특이사항</b> 주마다 따로 적힙니다. 다음 주로 넘어가면 빈 칸에서 시작하고, 지난 주에 적은 내용은 그 주에 그대로 남아 있습니다<br>
     <b>저장</b> 고치는 즉시 서버에 자동 저장되고, PC·아이패드·휴대폰 어디서 열어도 같은 기록이 보입니다 · 상단 <b>기록된 주</b> 목록에서 예전 주로 바로 이동 · 「기록 백업 · 복원」으로 파일로 받아두면 더 안전합니다<br>
     <b>신청요일</b> 요일 칸을 클릭하면 <b>보고 있는 주의 요일만</b> 바뀝니다 · 칸 오른쪽 위 점은 그 주만 다르다는 표시 · 「기본 요일로 저장」을 누르면 앞으로의 주에 그대로 적용됩니다 · 신청한 요일은 흰 칸, 아닌 요일은 회색 칸
   </p>
@@ -499,6 +521,7 @@
       weekDays: {},     // "2026-09-07|s3" -> ["월","수"]  (그 주만 다른 신청요일)
       notes: {},        // "2026-09-07|s3" -> "특이사항"   (주차마다 따로 남는 기록)
       styles: {},       // cellKey -> {c,b,f}
+      notesPerWeek: true,
       seq: 0
     };
   }
@@ -585,6 +608,7 @@
       sortAsc: !!state.sortAsc,
       orient: state.orient || "landscape",
       weekStart: state.weekStart || TERM_START,
+      notesPerWeek: !!state.notesPerWeek,
       styles: gs
     };
   }
@@ -624,6 +648,7 @@
       s.sortAsc = !!meta.sortAsc;
       s.orient = meta.orient || "landscape";
       s.weekStart = meta.weekStart || TERM_START;
+      s.notesPerWeek = !!meta.notesPerWeek;
       Object.keys(meta.styles || {}).forEach(function(k){ s.styles[k] = meta.styles[k]; });
     }
     Object.keys(weeks || {}).forEach(function(iso){
@@ -735,16 +760,31 @@
     var ov = state.weekDays && state.weekDays[wdKey(s.id)];
     return ov ? ov : s.days;
   }
-  // 이번 주에 보일 특이사항 (그 주에 적어둔 것이 있으면 그것을, 없으면 기본 문구를)
+  // 특이사항은 그 주에 적은 것만 보인다. 다음 주로 넘어가면 빈 칸에서 시작한다.
   function noteFor(s){
     var k = wdKey(s.id);
-    if(state.notes && Object.prototype.hasOwnProperty.call(state.notes, k)) return state.notes[k];
-    return s.note || "";
+    return (state.notes && state.notes[k]) ? state.notes[k] : "";
   }
-  function hasNoteOverride(s){
-    var k = wdKey(s.id);
-    return !!(state.notes && Object.prototype.hasOwnProperty.call(state.notes, k)
-              && state.notes[k] !== (s.note || ""));
+
+  /* 예전 자료 옮기기 : 학생마다 하나였던 특이사항(s.note)을
+     지금 기록이 남아 있는 주들에 나눠 넣고, 기본 문구는 비운다.
+     한 번만 실행되고 그 뒤로는 주차별로만 쌓인다. */
+  function migrateNotes(){
+    if(state.notesPerWeek) return;
+    var isos = weekIsos();                       // 자료가 실제로 있는 주만
+    if(!isos.length) isos = [state.weekStart || TERM_START];
+    if(!state.notes) state.notes = {};
+    state.students.forEach(function(s){
+      var base = (s.note || "").trim();
+      if(base){
+        isos.forEach(function(iso){
+          var k = iso+"|"+s.id;
+          if(!state.notes[k]) state.notes[k] = base;
+        });
+      }
+      s.note = "";
+    });
+    state.notesPerWeek = true;
   }
   function hasWeekOverride(sid){
     return !!(state.weekDays && state.weekDays[wdKey(sid)]);
@@ -872,9 +912,7 @@
 
       var nk = s.id+":note";
       keyGrid[r+",11"] = nk;
-      var wkNote = hasNoteOverride(s);
-      html += '<td class="noteCell'+(wkNote?" wk":"")+'" data-r="'+r+'" data-c="11" data-sel="1" data-edit="text" data-key="'+nk+'" data-sid="'+s.id+'" data-field="note"'
-            + (wkNote?' title="이번 주에만 적어둔 내용입니다"':'')
+      html += '<td class="noteCell" data-r="'+r+'" data-c="11" data-sel="1" data-edit="text" data-key="'+nk+'" data-sid="'+s.id+'" data-field="note"'
             + styleAttr(nk)+'><div class="cell">'+esc(noteFor(s))+"</div></td>";
 
       html += '<td class="colmg"><button class="delbtn no-print" data-del="'+s.id+'" title="이 신청자 삭제">✕</button></td>';
@@ -971,24 +1009,7 @@
   function commitEdit(td, inner){
     if(editingKey === null) return;
     var val = inner.textContent.replace(/\s+$/,"").replace(/^\s+/,"");
-    var isNote = td.dataset.field === "note" && td.dataset.sid;
-    var noteSid = isNote ? td.dataset.sid : null;
-    var noteBefore = null;
-    if(isNote){
-      var sOld = state.students.filter(function(x){ return x.id === noteSid; })[0];
-      noteBefore = sOld ? noteFor(sOld) : null;
-    }
     writeValue(td, val);
-    if(isNote && noteBefore !== null && noteBefore !== val){
-      var wkNow = state.weekStart;
-      toast("이번 주 특이사항만 바뀌었어요 (다른 주는 그대로)", "모든 주에 적용", function(){
-        var s2 = state.students.filter(function(x){ return x.id === noteSid; })[0];
-        if(!s2) return;
-        s2.note = val;                       // 따로 적어두지 않은 주의 기본 문구가 된다
-        if(state.notes) delete state.notes[wkNow+"|"+noteSid];
-        save(); render();
-      });
-    }
     editingKey = null;
     inner.onblur = null; inner.oninput = null;
     save();
@@ -1001,7 +1022,8 @@
     }
     if(td.dataset.field === "note" && td.dataset.sid){
       if(!state.notes) state.notes = {};
-      state.notes[state.weekStart+"|"+td.dataset.sid] = val;   // 다른 주는 건드리지 않는다
+      var nkey = state.weekStart+"|"+td.dataset.sid;           // 다른 주는 건드리지 않는다
+      if(val) state.notes[nkey] = val; else delete state.notes[nkey];
       return;
     }
     if(td.dataset.sid && td.dataset.field){
@@ -1532,7 +1554,12 @@
         });
       }
       if(!cur) return;
-      if(typeof ps.note === "string" && ps.note !== (cur.note || "")){ cur.note = ps.note; n++; }
+      // 예전 백업은 학생마다 특이사항이 하나뿐이다. 지금 보고 있는 주에 넣는다.
+      if(typeof ps.note === "string" && ps.note.trim()){
+        var pk = state.weekStart+"|"+cur.id;
+        if(!state.notes) state.notes = {};
+        if(!state.notes[pk]){ state.notes[pk] = ps.note; n++; }
+      }
     });
     // 예전 백업에 주차별 특이사항이 들어 있으면, 지금 비어 있는 주만 채운다
     Object.keys(parsed.notes || {}).forEach(function(k){
@@ -1635,6 +1662,7 @@
     if(!state.attendance) state.attendance = {};
     if(!state.styles) state.styles = {};
     if(!state.weekStart) state.weekStart = TERM_START;
+    migrateNotes();
     selected.clear(); anchor = null; closePicker(); closeBackup();
     paintSortBtn(); save(); render();
     toast("백업을 되살렸어요", "되돌리기", function(){
@@ -1672,6 +1700,7 @@
         if(!state.attendance) state.attendance = {};
         if(!state.styles) state.styles = {};
         if(!state.weekStart) state.weekStart = TERM_START;
+        migrateNotes();
         selected.clear(); anchor = null; closePicker(); closeBackup();
         paintSortBtn(); save(); render();
         toast(key+" 보관본으로 되살렸어요", "되돌리기", function(){
@@ -1687,6 +1716,70 @@
     selected.clear(); anchor = null; closePicker();
     save(); render();
   };
+
+  /* ---------- 앱으로 설치 ---------- */
+  var deferredPrompt = null;
+  var installBtn = document.getElementById("installBtn");
+  var installModal = document.getElementById("installModal");
+
+  function isStandalone(){
+    return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+        || window.navigator.standalone === true;
+  }
+  function platformHow(){
+    var ua = navigator.userAgent || "";
+    var iOS = /iPad|iPhone|iPod/.test(ua)
+           || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var android = /Android/.test(ua);
+    if(iOS){
+      return '<h4>아이패드 · 아이폰</h4>'
+           + '<p>Safari 로 이 주소를 연 다음, 아래(또는 위)쪽 <b>공유 단추</b>(네모에 화살표)를 누르고 '
+           + '목록을 내려 <b>홈 화면에 추가</b>를 고르세요. 오른쪽 위 <b>추가</b>를 누르면 끝입니다.</p>'
+           + '<p style="margin-top:6px">Chrome 이나 다른 브라우저에서는 이 항목이 없습니다. 반드시 Safari 로 여세요.</p>';
+    }
+    if(android){
+      return '<h4>안드로이드</h4>'
+           + '<p>Chrome 오른쪽 위 <b>점 세 개</b> 메뉴를 누르고 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 고르세요.</p>';
+    }
+    return '<h4>PC (Chrome · Edge)</h4>'
+         + '<p>주소창 오른쪽 끝의 <b>설치 아이콘</b>(화살표가 든 모니터 모양)을 누르세요. '
+         + '보이지 않으면 오른쪽 위 <b>점 세 개</b> 메뉴 → <b>캐스트, 저장 및 공유</b> → <b>페이지를 앱으로 설치</b> 순서로 들어가면 있습니다.</p>'
+         + '<p style="margin-top:6px">Safari 를 쓰신다면 메뉴 막대의 <b>파일 → Dock에 추가</b> 입니다.</p>';
+  }
+  function refreshInstallBtn(){
+    if(!installBtn) return;
+    installBtn.hidden = isStandalone();
+  }
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    refreshInstallBtn();
+  });
+  window.addEventListener("appinstalled", function(){
+    deferredPrompt = null;
+    if(installBtn) installBtn.hidden = true;
+    toast("설치했어요. 이제 홈 화면 아이콘으로 열면 됩니다");
+  });
+  if(installBtn){
+    installBtn.onclick = function(){
+      if(deferredPrompt){
+        var dp = deferredPrompt; deferredPrompt = null;
+        dp.prompt();
+        dp.userChoice.then(function(res){
+          if(res && res.outcome === "accepted"){ installBtn.hidden = true; }
+          else { refreshInstallBtn(); }
+        }).catch(function(){ refreshInstallBtn(); });
+        return;
+      }
+      document.getElementById("installHow").innerHTML = platformHow();
+      installModal.hidden = false;
+    };
+    document.getElementById("closeInstall").onclick = function(){ installModal.hidden = true; };
+    installModal.addEventListener("mousedown", function(e){
+      if(e.target === installModal) installModal.hidden = true;
+    });
+    refreshInstallBtn();
+  }
 
   /* ---------- 시작 ---------- */
   function paintAll(){
@@ -1717,7 +1810,10 @@
     return B.loadAll().then(function(res){
       state = stateFromDocs(res.meta, res.weeks);
       loadedFromStore = !!res.meta;
+      var beforeMig = JSON.stringify(state.notes) + "|" + state.notesPerWeek;
+      migrateNotes();
       primeLastSaved();
+      if(JSON.stringify(state.notes) + "|" + state.notesPerWeek !== beforeMig) save();
       paintAll(); booted = true;
       hideGate();
       if(loadedFromStore){
@@ -1792,12 +1888,12 @@
    (같은 폴더 README.md 에 순서대로 적어두었습니다.)
    ===================================================================== */
 const firebaseConfig = {
-  apiKey: "AIzaSyDI0u6B8x3qmtmsNxEoNs3k1nvS8K8MhUA",
-  authDomain: "studygroup-roll.firebaseapp.com",
-  projectId: "studygroup-roll",
-  storageBucket: "studygroup-roll.firebasestorage.app",
-  messagingSenderId: "404731549681",
-  appId: "1:404731549681:web:ef91c290c837abb7e1d650"
+  apiKey:            "여기에_APIKEY_붙여넣기",
+  authDomain:        "여기에_PROJECTID.firebaseapp.com",
+  projectId:         "여기에_PROJECTID",
+  storageBucket:     "여기에_PROJECTID.appspot.com",
+  messagingSenderId: "여기에_SENDERID",
+  appId:             "여기에_APPID"
 };
 /* ===================================================================== */
 
