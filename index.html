@@ -1,0 +1,1887 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#d96324">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="출석부">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./favicon.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<script>
+  // Firebase 모듈이 준비되면 알려주는 다리
+  window.SGReady = new Promise(function(res){ window.SGResolve = res; });
+</script>
+<title>Study Group 출석부</title>
+<style>
+  :root{
+    --ink:#24201d;
+    --ink-soft:#7a6c62;
+    --paper:#f2ede9;
+    --sheet:#ffffff;
+    --rule:#ded3cb;
+    --rule-strong:#b09a8b;
+    --band:#fbe7da;
+    --band-ink:#9c4413;
+    --accent:#d96324;
+    --accent-soft:#fbe3d6;
+    --off:#f5f1ee;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    -webkit-text-size-adjust:100%;text-size-adjust:100%;
+    color:var(--ink);
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+    font-size:14px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1280px;margin:0 auto;padding:20px 18px 64px}
+
+  /* 손가락으로 쓸 때 눌리는 넓이 확보 */
+  @media (pointer:coarse){
+    .btn{padding:9px 13px;font-size:14px}
+    .chipbtn{padding:8px 13px;font-size:13.5px}
+    .swatch{width:32px;height:32px}
+    select,textarea,input{font-size:16px}
+    .delbtn{font-size:18px;padding:8px 6px}
+    .picker .dchip{padding:10px 0;font-size:15px}
+  }
+
+  /* 태블릿 · 휴대폰 */
+  @media (max-width:900px){
+    .app{padding:12px 10px 56px}
+    .bar{gap:10px}
+    .bar h1{font-size:17px}
+    .bar p{font-size:12px}
+    .weeknav{width:100%;flex-wrap:wrap;gap:6px}
+    .weeknav .label{min-width:0;flex:1 1 100%;order:-1;text-align:left}
+    #weekJump{flex:1 1 100%;max-width:none}
+    .toolbar{
+      flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      gap:8px 10px;padding:8px 10px;
+    }
+    .toolbar > *{flex:none}
+    .selinfo{margin-left:8px;white-space:nowrap}
+    .sheet{padding:12px 10px 10px;min-width:860px}
+    .sheet-head{flex-wrap:wrap;gap:6px}
+    .brand .logo{height:28px}
+    .sheet-title{font-size:16px}
+    .hint{font-size:12px}
+    .mbox{padding:16px 14px}
+
+    /* 가로로 밀어도 번호와 학생명은 늘 보이게 */
+    .stickA{position:sticky;left:0;z-index:3;background:#fff}
+    .stickB{position:sticky;left:44px;z-index:3;background:#fff}
+    th.stickA,th.stickB{background:var(--band);z-index:4}
+    .stickB::after{content:"";position:absolute;top:0;right:-1px;bottom:0;width:1px;background:var(--rule-strong)}
+    td.sel.stickA,td.sel.stickB{z-index:5}
+  }
+  @media (max-width:560px){
+    .sheet{min-width:760px}
+    .bar h1{font-size:16px}
+  }
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  /* ---------- 로그인 화면 ---------- */
+  .gate{
+    position:fixed;inset:0;z-index:200;background:var(--paper);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .gate[hidden]{display:none}
+  .gbox{
+    background:#fff;border:1px solid var(--rule);border-radius:14px;
+    padding:28px 26px;max-width:380px;width:100%;box-shadow:0 10px 30px rgba(60,40,25,.12);text-align:center;
+  }
+  .gbox img.glogo{height:52px;width:auto;margin:0 auto 14px;display:block}
+  .gbox h2{margin:0 0 6px;font-size:18px}
+  .gbox p{margin:0 0 18px;font-size:13px;color:var(--ink-soft);line-height:1.6}
+  .gbox p.small{font-size:12px;margin-top:14px;margin-bottom:0}
+  .gbox input{
+    width:100%;border:1px solid var(--rule);border-radius:8px;padding:11px 12px;
+    font-size:15px;margin-bottom:9px;font-family:inherit;
+  }
+  .gbox input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .gbox .btn{width:100%;padding:11px;font-size:15px;margin-top:4px}
+  .gerr{
+    background:#fdf3f1;border:1px solid #e6bcb2;color:#8c3a26;border-radius:8px;
+    padding:9px 11px;font-size:12.5px;margin-bottom:12px;text-align:left;line-height:1.55;
+  }
+  .gerr[hidden]{display:none}
+  .gsetup{text-align:left;font-size:12.5px;line-height:1.75;color:var(--ink-soft)}
+  .gsetup code{background:var(--off);padding:1px 5px;border-radius:4px;font-size:11.5px}
+  .spin{
+    width:26px;height:26px;border:3px solid var(--accent-soft);border-top-color:var(--accent);
+    border-radius:50%;margin:6px auto 12px;animation:sp .8s linear infinite;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .whoami{font-size:11.5px;color:var(--ink-soft);margin-left:8px}
+  #logoutBtn[hidden]{display:none}
+
+  /* ---------- top bar ---------- */
+  .bar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+  .bar h1{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0}
+  .bar .barlogo{height:24px;width:auto;display:block;margin-bottom:7px}
+  .nostore{
+    border:1px solid #e6bcb2;background:#fdf3f1;color:#8c3a26;border-radius:9px;
+    padding:9px 12px;font-size:12.5px;line-height:1.6;margin-bottom:12px;
+  }
+  .nostore[hidden]{display:none}
+  .savebadge{
+    display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:2px 9px;
+    border-radius:999px;font-size:11.5px;border:1px solid var(--rule);background:#fff;color:var(--ink-soft);
+  }
+  .savebadge::before{content:"";width:6px;height:6px;border-radius:50%;background:#bdb3ab;flex:none}
+  .savebadge.ok::before{background:#2e9e6b}
+  .savebadge.saving::before{background:#e0a33a}
+  .savebadge.bad{border-color:#e6bcb2;color:#b0432c;background:#fdf3f1}
+  .savebadge.bad::before{background:#c0392b}
+
+  .modal{position:fixed;inset:0;z-index:90;background:rgba(36,28,22,.42);display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal[hidden]{display:none}
+  .mbox{background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:20px 22px;box-shadow:0 18px 46px rgba(40,26,16,.34)}
+  .mbox h2{margin:0 0 4px;font-size:17px}
+  .mbox h3{margin:0 0 4px;font-size:14px}
+  .mbox p{margin:0 0 12px;font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+  .mbox textarea{
+    width:100%;height:120px;border:1px solid var(--rule);border-radius:8px;padding:8px 9px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;line-height:1.5;resize:vertical;
+  }
+  .mrow{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+  .mdiv{border:0;border-top:1px solid var(--rule);margin:18px 0 14px}
+  #weekJump{max-width:210px}
+  #restoreFile{display:block;margin-bottom:8px;font-size:12px;max-width:100%}
+  .snaprow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--rule)}
+  .snaprow:last-child{border-bottom:0}
+  .snaprow .d{font-weight:600;font-size:13px;min-width:96px}
+  .snaprow .btn{padding:4px 9px;font-size:12px}
+  .archive{font-size:12px;color:var(--ink-soft);line-height:1.7;margin-top:10px}
+  .archive b{color:var(--ink)}
+  .bar p{margin:2px 0 0;font-size:12.5px;color:var(--ink-soft)}
+  .weeknav{display:flex;align-items:center;gap:8px}
+  .weeknav .label{min-width:190px;text-align:center;font-weight:600;font-size:14px}
+  .weeknav .label small{display:block;font-weight:400;font-size:11.5px;color:var(--ink-soft)}
+
+  button{font:inherit;color:inherit;cursor:pointer}
+  .btn{
+    border:1px solid var(--rule);background:#fff;border-radius:7px;
+    padding:6px 11px;font-size:13px;line-height:1.3;transition:background .12s,border-color .12s;
+  }
+  .btn:hover{background:var(--off);border-color:var(--rule-strong)}
+  .btn:active{background:#eee6e0}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:#bf5219}
+  .btn.ghost{border-color:transparent;background:transparent}
+  .btn.ghost:hover{background:#eae2dc}
+  .btn:focus-visible,[contenteditable]:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{
+    background:#fff;border:1px solid var(--rule);border-radius:10px;
+    padding:9px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:9px 14px;margin-bottom:14px;
+  }
+  .grp{display:flex;align-items:center;gap:6px}
+  .grp > span.t{font-size:12px;color:var(--ink-soft);margin-right:1px}
+  .sep{width:1px;align-self:stretch;background:var(--rule);margin:0 2px}
+  .swatch{
+    width:24px;height:24px;border-radius:6px;border:1px solid rgba(0,0,0,.18);padding:0;
+    display:inline-flex;align-items:center;justify-content:center;font-size:11px;
+  }
+  .swatch:hover{transform:translateY(-1px)}
+  .swatch.none{background:#fff;color:var(--ink-soft);font-size:13px}
+  select{border:1px solid var(--rule);border-radius:7px;padding:5px 7px;background:#fff;font-size:13px}
+  .chipbtn{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:4px 10px;font-size:12.5px}
+  .chipbtn:hover{background:var(--accent-soft);border-color:var(--accent)}
+  .selinfo{margin-left:auto;font-size:12px;color:var(--ink-soft)}
+
+  /* ---------- sheet ---------- */
+  .sheet-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .sheet{
+    background:var(--sheet);border:1px solid var(--rule-strong);border-radius:4px;
+    padding:16px 16px 12px;min-width:1020px;box-shadow:0 1px 3px rgba(60,40,25,.10);
+  }
+  .sheet-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:10px;margin-bottom:10px;border-bottom:2px solid var(--accent)}
+  .brand{display:flex;align-items:center;gap:14px;min-width:0}
+  .brand .logo{height:36px;width:auto;display:block;flex:none}
+  .sheet-title{font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .sheet-week{font-size:14px;font-weight:600;color:var(--band-ink);white-space:nowrap}
+
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  th,td{border:1px solid var(--rule);padding:0;vertical-align:middle}
+  th{background:var(--band);color:var(--band-ink);font-weight:600;font-size:13px}
+  .cell{padding:5px 6px;min-height:28px;text-align:center;word-break:break-all;font-size:13px}
+  td.cell{background:#fff}
+  th .cell{padding:6px}
+  .dhead{line-height:1.25}
+  .dhead .d{font-weight:700}
+  .dhead .n{font-size:11px;font-weight:400;color:#a5714c}
+
+  tr.stu td.name{font-weight:600}
+  td.off{background:var(--off);color:#bbaea5}
+  td.attend{cursor:cell}
+  td.sel{box-shadow:inset 0 0 0 2px var(--accent);position:relative;z-index:1}
+  td.sel::after{content:"";position:absolute;inset:0;background:var(--accent);opacity:.07;pointer-events:none}
+  td.editing{box-shadow:inset 0 0 0 2px var(--accent);background:#fffdf6 !important}
+  td.editing::after{display:none}
+  .cell[contenteditable="true"]{outline:none;cursor:text;text-align:left}
+
+  .days-chips{display:flex;gap:2px;justify-content:center;flex-wrap:nowrap;white-space:nowrap}
+  .days-chips i{
+    font-style:normal;font-size:11px;line-height:1;padding:3px 4px;border-radius:4px;
+    background:var(--accent-soft);color:#a44c17;font-weight:600;
+  }
+  .days-chips i{white-space:nowrap}
+  .days-chips i.empty{background:#f0e6e6;color:#a06a6a}
+  td.daysCell .cell{word-break:normal;overflow:hidden}
+  td.daysCell{cursor:pointer}
+  td.daysCell.wk,td.noteCell.wk{position:relative}
+  td.daysCell.wk::before,td.noteCell.wk::before{
+    content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;
+    background:var(--accent);
+  }
+
+  .rate td{background:#faf5f1;font-size:12px;color:var(--ink-soft);padding:5px 6px;text-align:center}
+  .rate td.lab{font-weight:600;color:var(--band-ink)}
+
+  .colmg{width:34px}
+  .delbtn{border:none;background:transparent;color:#c9bab0;font-size:15px;line-height:1;padding:4px 6px;border-radius:5px;width:100%}
+  .delbtn:hover{background:#fbe7e7;color:#c0392b}
+
+  .addrow{margin-top:10px;display:flex;gap:8px;align-items:center}
+
+  /* day picker */
+  .picker{
+    position:absolute;z-index:50;background:#fff;border:1px solid var(--rule-strong);border-radius:10px;
+    box-shadow:0 6px 20px rgba(60,40,25,.20);padding:10px 11px;width:290px;
+  }
+  .picker .ptitle{font-size:12px;color:var(--ink-soft);margin-bottom:7px}
+  .picker .ptitle b{color:var(--ink);font-weight:600}
+  .picker .prow{display:flex;gap:5px;align-items:center}
+  .picker .dchip{border:1px solid var(--rule);background:#fff;border-radius:6px;padding:5px 0;font-size:13px;flex:1}
+  .picker .dchip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .picker .pfoot{display:flex;gap:6px;margin-top:9px;padding-top:8px;border-top:1px solid var(--rule)}
+  .picker .pfoot .btn{flex:1;padding:5px 6px;font-size:12px;text-align:center}
+  .picker .pfoot .btn[disabled]{opacity:.42;cursor:default}
+  .picker .close{width:auto;flex:none;padding:5px 10px}
+  @media (max-width:560px){ .picker{width:auto;max-width:calc(100vw - 24px)} }
+
+  /* toast */
+  .toast{
+    position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    background:var(--ink);color:#fff;border-radius:9px;padding:9px 12px;font-size:13px;
+    display:flex;gap:10px;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:80;
+  }
+  .toast button{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:3px 9px;font-size:12.5px}
+  .hint{font-size:12px;color:var(--ink-soft);margin:12px 2px 0;line-height:1.7}
+  .hint b{color:var(--ink);font-weight:600}
+
+  /* ---------- print: A4 landscape, one week per page ---------- */
+  @media print{
+    body{background:#fff;font-size:11px}
+    .app{max-width:none;padding:0}
+    .bar,.toolbar,.addrow,.hint,.toast,.picker,.colmg,.no-print{display:none !important}
+    .sheet-wrap{overflow:visible}
+    .sheet{border:none;border-radius:0;box-shadow:none;padding:0;min-width:0;width:100%}
+    .sheet-head{padding-bottom:6px;margin-bottom:8px}
+    .sheet-title{font-size:15px}
+    .brand .logo{height:24px}
+    body.portrait .brand .logo{height:19px}
+    .sheet-week{font-size:12px}
+    .cell{padding:3px 4px;font-size:11px}
+    th{font-size:11px}
+    td.sel{box-shadow:none}
+    td.sel::after{display:none}
+    table{page-break-inside:auto}
+    tr{page-break-inside:avoid}
+    thead{display:table-header-group}
+    td,th{border-color:#9b8779 !important}
+    td.off{background:#f1ece8 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    th{background:#fbe7da !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body.portrait .cell{padding:2px 3px;font-size:9.5px}
+    body.portrait th{font-size:9.5px}
+    body.portrait .sheet-title{font-size:13px}
+    body.portrait .days-chips i{font-size:8.5px;padding:2px 3px}
+    body.portrait th:nth-child(1){width:26px !important}
+    body.portrait th:nth-child(2){width:54px !important}
+    body.portrait th:nth-child(3){width:28px !important}
+    body.portrait th:nth-child(4){width:54px !important}
+    body.portrait th:nth-child(5){width:46px !important}
+    body.portrait th:nth-child(6){width:84px !important}
+    body.portrait th:nth-child(12){width:64px !important}
+    body.portrait .dhead .n{font-size:8.5px}
+  }
+</style>
+<style id="pageStyle">@page{size:A4 landscape;margin:11mm 10mm}</style>
+
+<div class="gate no-print" id="gate" hidden>
+  <div class="gbox">
+    <img class="glogo" src="./icon-192.png" alt="">
+
+    <div id="gateWait" hidden>
+      <div class="spin"></div>
+      <h2>기록을 불러오는 중</h2>
+      <p>잠시만 기다려 주세요.</p>
+    </div>
+
+    <div id="gateLogin" hidden>
+      <h2>Study Group 출석부</h2>
+      <p>등록된 계정으로 로그인하세요.</p>
+      <div class="gerr" id="loginErr" hidden></div>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" required>
+        <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password" required>
+        <button class="btn primary" id="loginBtn" type="submit">로그인</button>
+      </form>
+      <p class="small">한 번 로그인하면 다음부터는 바로 열립니다.</p>
+    </div>
+
+    <div id="gateSetup" hidden>
+      <h2>설정이 필요합니다</h2>
+      <div class="gsetup">
+        <p><code>index.html</code> 맨 아래 <code>firebaseConfig</code> 에 Firebase 설정값을 넣어 주세요.
+        같은 폴더의 <code>README.md</code> 에 순서가 적혀 있습니다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="bar">
+    <div>
+      <img class="barlogo" src="data:image/png;base64,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" alt="수학도서관">
+      <h1>Study Group 출석부</h1>
+      <p>셀을 클릭해 선택하고, 더블클릭하면 바로 고칠 수 있어요. 인쇄하면 한 주가 A4 한 장에 담깁니다.<span class="savebadge" id="saveBadge">불러오는 중…</span><span class="whoami" id="whoami"></span></p>
+    </div>
+    <div class="weeknav">
+      <button class="btn" id="prevWeek">◀ 지난주</button>
+      <div class="label" id="weekLabel"></div>
+      <button class="btn" id="nextWeek">다음주 ▶</button>
+      <select id="weekJump" title="기록이 남아 있는 주로 이동"></select>
+      <select id="orient" title="인쇄 방향">
+        <option value="landscape">A4 가로</option>
+        <option value="portrait">A4 세로</option>
+      </select>
+      <button class="btn primary" id="saveBtn">저장</button>
+      <button class="btn" id="logoutBtn" hidden>로그아웃</button>
+      <button class="btn" id="printBtn">인쇄</button>
+    </div>
+  </div>
+
+  <div class="nostore no-print" id="noStoreNote" hidden>
+    지금 서버에 연결되어 있지 않습니다. 입력한 내용은 화면에만 남아 있으니,
+    <b>기록 백업 · 복원</b>에서 파일로 받아 두세요.
+  </div>
+
+  <div class="toolbar">
+    <div class="grp">
+      <span class="t">글자 크기</span>
+      <select id="fontSize">
+        <option value="" disabled selected>크기</option>
+        <option value="9px">9</option>
+        <option value="10px">10</option>
+        <option value="11px">11</option>
+        <option value="12px">12</option>
+        <option value="13px">13</option>
+        <option value="14px">14</option>
+        <option value="16px">16</option>
+        <option value="18px">18</option>
+        <option value="20px">20</option>
+        <option value="24px">24</option>
+        <option value="reset">기본</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <div class="grp" id="colorGrp"><span class="t">글자색</span></div>
+    <div class="sep"></div>
+    <div class="grp" id="bgGrp"><span class="t">칸 배경</span></div>
+    <div class="sep"></div>
+    <div class="grp" id="fillGrp"><span class="t">출결 입력</span></div>
+    <div class="sep"></div>
+    <button class="btn" id="editBtn" title="고른 칸을 편집합니다">편집</button>
+    <button class="btn" id="multiBtn" title="켜면 손가락으로 여러 칸을 골라 담을 수 있어요">여러 칸 선택</button>
+    <button class="btn ghost" id="clearFmt">서식 지우기</button>
+    <div class="selinfo" id="selInfo">선택된 칸 없음</div>
+  </div>
+
+  <div class="sheet-wrap">
+    <div class="sheet" id="sheet">
+      <div class="sheet-head">
+        <div class="brand">
+          <img class="logo" src="data:image/png;base64,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" alt="수학도서관 1:1 명품 맞춤 수학학원">
+          <div class="sheet-title" id="docTitle" data-plain="1">Study Group 출석체크</div>
+        </div>
+        <div class="sheet-week" id="docWeek"></div>
+      </div>
+      <table id="tbl"></table>
+    </div>
+  </div>
+
+  <div class="addrow">
+    <button class="btn" id="addStudent">+ 신청자 추가</button>
+    <button class="btn" id="sortDir">번호 순서: 학년 높은 순</button>
+    <button class="btn" id="backupBtn">기록 백업 · 복원</button>
+    <button class="btn ghost" id="resetAll">처음 명단으로 되돌리기</button>
+  </div>
+
+  <div class="modal no-print" id="backupModal" hidden>
+    <div class="mbox">
+      <h2>기록 백업</h2>
+      <p>지금까지 쌓인 모든 주의 출결·명단·서식이 아래 내용에 들어 있습니다. 파일로 받아 두면 브라우저를 바꾸거나 기록이 사라져도 그대로 되살릴 수 있어요.</p>
+      <textarea id="backupText" readonly></textarea>
+      <div class="mrow">
+        <button class="btn primary" id="dlBackup">파일로 내려받기</button>
+        <button class="btn" id="selBackup">전체 선택</button>
+        <button class="btn ghost" id="closeBackup">닫기</button>
+      </div>
+      <hr class="mdiv">
+      <h3>백업에서 되살리기</h3>
+      <p>받아 둔 파일을 고르거나, 백업 내용을 붙여넣고 되살리기를 누르세요. 지금 기록은 되살린 뒤에도 한 번은 되돌릴 수 있습니다.</p>
+      <input type="file" id="restoreFile" accept=".json,application/json,text/plain">
+      <textarea id="restoreText" placeholder="백업 내용을 여기에 붙여넣어도 됩니다"></textarea>
+      <div class="mrow">
+        <button class="btn" id="doRestore">전체 되살리기</button>
+        <button class="btn" id="doRestoreNotes">특이사항만 가져오기</button>
+      </div>
+      <hr class="mdiv">
+      <h3>날짜별 자동 보관본</h3>
+      <p>하루에 한 번, 그날 처음 열 때의 상태를 따로 담아 둡니다. 실수로 지운 내용을 그 날짜 기준으로 되살릴 수 있어요.</p>
+      <div id="snapList" class="archive"></div>
+      <div class="archive" id="archiveInfo"></div>
+    </div>
+  </div>
+
+  <p class="hint">
+    <b>컴퓨터</b> 클릭으로 선택 · 드래그와 Shift+클릭으로 여러 칸 · 더블클릭이나 Enter로 편집 · Delete로 비우기 · Ctrl(⌘)+S로 저장<br>
+    <b>아이패드 · 휴대폰</b> 한 번 눌러 선택, 같은 칸을 한 번 더 누르면 편집 · 「여러 칸 선택」을 켜면 칸을 하나씩 눌러 담을 수 있어요 · 표는 좌우로 밀어서 보고, 번호와 학생명은 그대로 붙어 있습니다<br>
+    <b>특이사항</b> 주차마다 따로 적힙니다 · 칸 오른쪽 위 점은 그 주에만 적어둔 내용이라는 표시 · 모든 주에 같이 남기려면 고친 뒤 뜨는 「모든 주에 적용」을 누르세요<br>
+    <b>저장</b> 고치는 즉시 서버에 자동 저장되고, PC·아이패드·휴대폰 어디서 열어도 같은 기록이 보입니다 · 상단 <b>기록된 주</b> 목록에서 예전 주로 바로 이동 · 「기록 백업 · 복원」으로 파일로 받아두면 더 안전합니다<br>
+    <b>신청요일</b> 요일 칸을 클릭하면 <b>보고 있는 주의 요일만</b> 바뀝니다 · 칸 오른쪽 위 점은 그 주만 다르다는 표시 · 「기본 요일로 저장」을 누르면 앞으로의 주에 그대로 적용됩니다 · 신청한 요일은 흰 칸, 아닌 요일은 회색 칸
+  </p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DAYS = ["월","화","수","목","금"];
+  var TERM_START = "2026-09-07"; // 개강: 월요일
+
+  var TEXT_COLORS = [
+    {n:"검정", v:"#1f2937"},
+    {n:"빨강", v:"#c0392b"},
+    {n:"파랑", v:"#1d4ed8"},
+    {n:"초록", v:"#15803d"},
+    {n:"보라", v:"#7c3aed"}
+  ];
+  var BG_COLORS = [
+    {n:"분홍", v:"#fde2e4"},
+    {n:"노랑", v:"#fff3c4"},
+    {n:"하늘", v:"#d8ecfb"}
+  ];
+  var QUICK = ["참석(2h)","참석(1h)","지각","결석","보강"];
+
+  var SEED = [];   // 명단은 코드에 두지 않는다. 로그인 후 Firestore 에서 받아온다.
+
+  var HEADERS = ["번호","학생명","학년","학교","담임","신청요일"];
+  var TAIL_HEADER = "특이사항";
+
+  function freshState(){
+    return {
+      title: "Study Group 출석체크",
+      headers: HEADERS.slice().concat([TAIL_HEADER]),
+      weekStart: TERM_START,
+      students: SEED.map(function(s,i){
+        return {id:"s"+(i+1), teacher:s[0], name:s[1], grade:String(s[2]), school:s[3], days:s[4].slice(), note:s[5]};
+      }),
+      attendance: {},   // "s3|2026-09-07" -> "참석(2h)"
+      weekDays: {},     // "2026-09-07|s3" -> ["월","수"]  (그 주만 다른 신청요일)
+      notes: {},        // "2026-09-07|s3" -> "특이사항"   (주차마다 따로 남는 기록)
+      styles: {},       // cellKey -> {c,b,f}
+      seq: 0
+    };
+  }
+
+  var state = freshState();
+  var selected = new Set();     // "r,c"
+  var anchor = null;            // {r,c}
+  var dragging = false;
+  var multiMode = false;          // 손가락으로 여러 칸 고르기
+  var touchStart = null;          // 탭인지 스크롤인지 판단용
+  var editingKey = null;
+  var pickerFor = null;         // student id
+  var keyGrid = {};             // "r,c" -> cellKey
+  var undoBuf = null;
+  var toastTimer = null;
+
+  /* ---------- dates ---------- */
+  function parseISO(s){ var p=s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+  function toISO(d){
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function addDays(d,n){ var x=new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+  function weekDates(){
+    var mon = parseISO(state.weekStart);
+    return DAYS.map(function(_,i){ return addDays(mon,i); });
+  }
+  function weekLabel(){
+    var mon = parseISO(state.weekStart);
+    var nth = Math.ceil(mon.getDate()/7);
+    return mon.getFullYear()+"년 "+(mon.getMonth()+1)+"월 "+nth+"주차";
+  }
+  function weekRange(){
+    var ds = weekDates(), a = ds[0], b = ds[4];
+    return (a.getMonth()+1)+"/"+a.getDate()+" ~ "+(b.getMonth()+1)+"/"+b.getDate();
+  }
+
+  /* ---------- 저장 : Firebase Firestore ---------- */
+  var saveTimer = null, saveBadge = null, savePending = false, saveRetried = false;
+  var B = null;                          // 백엔드 (로그인 뒤에 연결된다)
+  var lastSaved = {meta:null, weeks:{}}; // 마지막으로 서버에 올린 내용 (바뀐 것만 올리기 위해)
+  var loadedFromStore = false;
+
+  function setBadge(kind, text){
+    if(!saveBadge) saveBadge = document.getElementById("saveBadge");
+    if(!saveBadge) return;
+    saveBadge.className = "savebadge" + (kind ? " "+kind : "");
+    saveBadge.textContent = text;
+  }
+  function stamp(){
+    var d = new Date(), hh = d.getHours(), mm = String(d.getMinutes()).padStart(2,"0");
+    var ap = hh < 12 ? "오전" : "오후", h12 = hh % 12 || 12;
+    return ap+" "+h12+":"+mm;
+  }
+  function storageReady(){ return !!B; }
+
+  /* --- 화면의 상태를 주차별 문서로 쪼개고 다시 합치는 부분 ---
+     한 주를 고치면 그 주 문서만 바뀐다. 다른 주는 손대지 않는다. */
+
+  function weekIsos(){
+    var set = {};
+    Object.keys(state.attendance || {}).forEach(function(k){
+      if(state.attendance[k]) set[k.split("|")[1]] = true;
+    });
+    Object.keys(state.notes || {}).forEach(function(k){ set[k.split("|")[0]] = true; });
+    Object.keys(state.weekDays || {}).forEach(function(k){ set[k.split("|")[0]] = true; });
+    Object.keys(state.styles || {}).forEach(function(k){
+      var p = k.split("|");
+      if(p.length === 2) set[p[1]] = true;
+    });
+    delete set["undefined"]; delete set[""];
+    return Object.keys(set);
+  }
+
+  function sliceMeta(){
+    var gs = {};
+    Object.keys(state.styles || {}).forEach(function(k){
+      if(k.split("|").length !== 2) gs[k] = state.styles[k];   // 주차와 무관한 서식만
+    });
+    return {
+      title: state.title || "",
+      headers: (state.headers || []).slice(),
+      students: JSON.parse(JSON.stringify(state.students || [])),
+      seq: state.seq || 0,
+      sortAsc: !!state.sortAsc,
+      orient: state.orient || "landscape",
+      weekStart: state.weekStart || TERM_START,
+      styles: gs
+    };
+  }
+
+  function sliceWeek(iso){
+    var att = {}, nts = {}, dys = {}, sty = {};
+    Object.keys(state.attendance || {}).forEach(function(k){
+      var p = k.split("|");
+      if(p[1] === iso && state.attendance[k]) att[p[0]] = state.attendance[k];
+    });
+    Object.keys(state.notes || {}).forEach(function(k){
+      var p = k.split("|");
+      if(p[0] === iso) nts[p[1]] = state.notes[k];
+    });
+    Object.keys(state.weekDays || {}).forEach(function(k){
+      var p = k.split("|");
+      if(p[0] === iso) dys[p[1]] = state.weekDays[k];
+    });
+    Object.keys(state.styles || {}).forEach(function(k){
+      var p = k.split("|");
+      if(p.length === 2 && p[1] === iso) sty[k] = state.styles[k];
+    });
+    return {attendance:att, notes:nts, days:dys, styles:sty};
+  }
+  function weekIsEmpty(w){
+    return !Object.keys(w.attendance).length && !Object.keys(w.notes).length
+        && !Object.keys(w.days).length && !Object.keys(w.styles).length;
+  }
+
+  function stateFromDocs(meta, weeks){
+    var s = freshState();
+    if(meta){
+      if(typeof meta.title === "string" && meta.title) s.title = meta.title;
+      if(Array.isArray(meta.headers) && meta.headers.length) s.headers = meta.headers.slice();
+      if(Array.isArray(meta.students)) s.students = JSON.parse(JSON.stringify(meta.students));
+      s.seq = meta.seq || s.students.length;
+      s.sortAsc = !!meta.sortAsc;
+      s.orient = meta.orient || "landscape";
+      s.weekStart = meta.weekStart || TERM_START;
+      Object.keys(meta.styles || {}).forEach(function(k){ s.styles[k] = meta.styles[k]; });
+    }
+    Object.keys(weeks || {}).forEach(function(iso){
+      var w = weeks[iso] || {};
+      Object.keys(w.attendance || {}).forEach(function(sid){ s.attendance[sid+"|"+iso] = w.attendance[sid]; });
+      Object.keys(w.notes || {}).forEach(function(sid){ s.notes[iso+"|"+sid] = w.notes[sid]; });
+      Object.keys(w.days || {}).forEach(function(sid){ s.weekDays[iso+"|"+sid] = w.days[sid]; });
+      Object.keys(w.styles || {}).forEach(function(k){ s.styles[k] = w.styles[k]; });
+    });
+    return s;
+  }
+
+  function primeLastSaved(){
+    lastSaved.meta = JSON.stringify(sliceMeta());
+    lastSaved.weeks = {};
+    weekIsos().forEach(function(iso){
+      var w = sliceWeek(iso);
+      if(!weekIsEmpty(w)) lastSaved.weeks[iso] = JSON.stringify(w);
+    });
+  }
+
+  function doSave(){
+    savePending = false;
+    if(!B){
+      setBadge("bad", "로그인해야 저장됩니다");
+      return Promise.resolve(false);
+    }
+    setBadge("saving", "저장 중…");
+    var jobs = [], seen = {};
+
+    var m = sliceMeta(), ms = JSON.stringify(m);
+    if(ms !== lastSaved.meta){
+      jobs.push(B.saveMeta(m).then(function(){ lastSaved.meta = ms; }));
+    }
+    weekIsos().forEach(function(iso){
+      var w = sliceWeek(iso);
+      if(weekIsEmpty(w)) return;
+      seen[iso] = true;
+      var ws = JSON.stringify(w);
+      if(ws !== lastSaved.weeks[iso]){
+        jobs.push(B.saveWeek(iso, w).then(function(){ lastSaved.weeks[iso] = ws; }));
+      }
+    });
+    Object.keys(lastSaved.weeks).forEach(function(iso){
+      if(!seen[iso]){
+        jobs.push(B.deleteWeek(iso).then(function(){ delete lastSaved.weeks[iso]; }));
+      }
+    });
+
+    if(!jobs.length){ setBadge("ok", "저장됨 · "+stamp()); return Promise.resolve(true); }
+    return Promise.all(jobs).then(function(){
+      saveRetried = false;
+      state.savedAt = Date.now();
+      setBadge("ok", "저장됨 · "+stamp());
+      return true;
+    }).catch(function(){ return retryOrFail(); });
+  }
+  function retryOrFail(){
+    if(!saveRetried){
+      saveRetried = true;
+      return new Promise(function(res){ setTimeout(function(){ res(doSave()); }, 1200); });
+    }
+    setBadge("bad", "저장 실패 · 백업 파일을 받아두세요");
+    return false;
+  }
+  function save(){
+    savePending = true;
+    setBadge("saving", "저장 중…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(doSave, 400);
+  }
+  function saveNow(){
+    if(!savePending) return;
+    clearTimeout(saveTimer);
+    doSave();
+  }
+  function saveForce(){
+    clearTimeout(saveTimer);
+    saveRetried = false;
+    savePending = false;
+    return doSave();
+  }
+  window.addEventListener("beforeunload", saveNow);
+  window.addEventListener("pagehide", saveNow);
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "hidden") saveNow();
+  });
+
+  /* ---------- helpers ---------- */
+  function attKey(sid, iso){ return sid+"|"+iso; }
+
+  // 번호는 늘 학년 → 이름 순으로 다시 매겨진다
+  function sortStudents(){
+    var dir = (state.sortAsc ? 1 : -1);
+    state.students.sort(function(a,b){
+      var ga = parseInt(a.grade,10); if(isNaN(ga)) ga = 0;
+      var gb = parseInt(b.grade,10); if(isNaN(gb)) gb = 0;
+      if(ga !== gb) return (ga - gb) * dir;
+      return String(a.name||"").localeCompare(String(b.name||""), "ko") * dir;
+    });
+  }
+  function indexOfStudent(sid){
+    for(var i=0;i<state.students.length;i++) if(state.students[i].id === sid) return i;
+    return -1;
+  }
+  function wdKey(sid){ return state.weekStart+"|"+sid; }
+  // 이번 주에 실제로 적용되는 신청요일 (주간 변경이 있으면 그것을, 없으면 기본 요일을)
+  function daysFor(s){
+    var ov = state.weekDays && state.weekDays[wdKey(s.id)];
+    return ov ? ov : s.days;
+  }
+  // 이번 주에 보일 특이사항 (그 주에 적어둔 것이 있으면 그것을, 없으면 기본 문구를)
+  function noteFor(s){
+    var k = wdKey(s.id);
+    if(state.notes && Object.prototype.hasOwnProperty.call(state.notes, k)) return state.notes[k];
+    return s.note || "";
+  }
+  function hasNoteOverride(s){
+    var k = wdKey(s.id);
+    return !!(state.notes && Object.prototype.hasOwnProperty.call(state.notes, k)
+              && state.notes[k] !== (s.note || ""));
+  }
+  function hasWeekOverride(sid){
+    return !!(state.weekDays && state.weekDays[wdKey(sid)]);
+  }
+  function setWeekDays(sid, arr){
+    if(!state.weekDays) state.weekDays = {};
+    state.weekDays[wdKey(sid)] = arr;
+  }
+  function styleOf(k){ return state.styles[k] || null; }
+  function applyStyle(td, k){
+    var st = styleOf(k); if(!st) return;
+    if(st.c) td.style.color = st.c;
+    if(st.b) td.style.backgroundColor = st.b;
+    if(st.f) td.style.fontSize = st.f;
+  }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>]/g, function(m){ return {"&":"&amp;","<":"&lt;",">":"&gt;"}[m]; }); }
+
+  /* ---------- 쌓인 기록 : 자료가 있는 주 목록 ---------- */
+  function mondayOf(iso){
+    var d = parseISO(iso), off = (d.getDay() + 6) % 7;   // 월요일 기준
+    return toISO(addDays(d, -off));
+  }
+  function recordedWeeks(){
+    var set = {};
+    Object.keys(state.attendance || {}).forEach(function(k){
+      if(!state.attendance[k]) return;
+      var iso = k.split("|")[1];
+      if(iso) set[mondayOf(iso)] = true;
+    });
+    Object.keys(state.weekDays || {}).forEach(function(k){
+      var iso = k.split("|")[0];
+      if(iso) set[iso] = true;
+    });
+    Object.keys(state.notes || {}).forEach(function(k){
+      if(!state.notes[k]) return;
+      var iso = k.split("|")[0];
+      if(iso) set[iso] = true;
+    });
+    set[state.weekStart] = true;
+    return Object.keys(set).sort().reverse();
+  }
+  function labelForWeek(iso){
+    var mon = parseISO(iso), b = addDays(mon,4);
+    return mon.getFullYear()+"년 "+(mon.getMonth()+1)+"월 "+Math.ceil(mon.getDate()/7)+"주차 ("
+         + (mon.getMonth()+1)+"/"+mon.getDate()+"~"+(b.getMonth()+1)+"/"+b.getDate()+")";
+  }
+  function paintWeekJump(){
+    var sel = document.getElementById("weekJump");
+    if(!sel) return;
+    var weeks = recordedWeeks();
+    sel.innerHTML = '<option value="" disabled'+(weeks.length?"":" selected")+'>기록된 주 ('+weeks.length+')</option>'
+      + weeks.map(function(w){
+          return '<option value="'+w+'"'+(w===state.weekStart?" selected":"")+'>'+labelForWeek(w)+'</option>';
+        }).join("");
+  }
+
+  /* ---------- render ---------- */
+  function render(){
+    sortStudents();
+    keyGrid = {};
+    var dates = weekDates();
+    var tbl = document.getElementById("tbl");
+    var html = "";
+
+    // header row (r = 0)
+    html += "<thead><tr>";
+    html += '<th class="stickA" style="width:44px"><div class="cell">'+esc(state.headers[0])+"</div></th>";
+    var widths = ["84px","46px","84px","72px","130px"];
+    for(var c=1;c<=5;c++){
+      var hk = "h"+c;
+      keyGrid["0,"+c] = hk;
+      html += '<th class="'+(c===1?"stickB":"")+'" style="width:'+widths[c-1]+'" data-r="0" data-c="'+c+'" data-sel="1" data-edit="'+(c===5?"text":"text")+'" data-key="'+hk+'"'+styleAttr(hk)+'><div class="cell">'+esc(state.headers[c])+"</div></th>";
+    }
+    for(var i=0;i<5;i++){
+      var c2 = 6+i, hk2 = "hd"+i;
+      keyGrid["0,"+c2] = hk2;
+      var d = dates[i];
+      html += '<th data-r="0" data-c="'+c2+'" data-sel="1" data-key="'+hk2+'"'+styleAttr(hk2)+'><div class="cell dhead"><span class="d">'+DAYS[i]+'</span><br><span class="n">'+(d.getMonth()+1)+"/"+d.getDate()+"</span></div></th>";
+    }
+    keyGrid["0,11"] = "h6";
+    html += '<th style="width:120px" data-r="0" data-c="11" data-sel="1" data-edit="text" data-key="h6"'+styleAttr("h6")+'><div class="cell">'+esc(state.headers[6])+"</div></th>";
+    html += '<th class="colmg"></th>';
+    html += "</tr></thead><tbody>";
+
+    // student rows
+    state.students.forEach(function(s, idx){
+      var r = idx+1;
+      html += '<tr class="stu" data-sid="'+s.id+'">';
+      html += '<td class="stickA"><div class="cell">'+(idx+1)+"</div></td>";
+
+      var fields = [
+        {c:1, f:"name",    v:s.name, cls:"name"},
+        {c:2, f:"grade",   v:s.grade},
+        {c:3, f:"school",  v:s.school},
+        {c:4, f:"teacher", v:s.teacher}
+      ];
+      fields.forEach(function(fd){
+        var k = s.id+":"+fd.f;
+        keyGrid[r+","+fd.c] = k;
+        html += '<td class="'+(fd.cls||"")+(fd.c===1?" stickB":"")+'" data-r="'+r+'" data-c="'+fd.c+'" data-sel="1" data-edit="text" data-key="'+k+'" data-sid="'+s.id+'" data-field="'+fd.f+'"'+styleAttr(k)+'><div class="cell">'+esc(fd.v)+"</div></td>";
+      });
+
+      // 신청요일
+      var dk = s.id+":days";
+      keyGrid[r+",5"] = dk;
+      var eff = daysFor(s);
+      var wk = hasWeekOverride(s.id);
+      var chips = eff.length
+        ? eff.map(function(d){ return "<i>"+d+"</i>"; }).join("")
+        : '<i class="empty">미정</i>';
+      html += '<td class="daysCell'+(wk?" wk":"")+'" data-r="'+r+'" data-c="5" data-sel="1" data-edit="days" data-key="'+dk+'" data-sid="'+s.id+'"'
+            + (wk?' title="이번 주만 요일이 다릅니다"':'')
+            + styleAttr(dk)+'><div class="cell"><span class="days-chips">'+chips+"</span></div></td>";
+
+      // 요일별 출결
+      for(var j=0;j<5;j++){
+        var c3 = 6+j;
+        var iso = toISO(dates[j]);
+        var ak = attKey(s.id, iso);
+        keyGrid[r+","+c3] = ak;
+        var applied = eff.indexOf(DAYS[j]) !== -1;
+        var val = state.attendance[ak] || "";
+        html += '<td class="attend'+(applied?"":" off")+'" data-r="'+r+'" data-c="'+c3+'" data-sel="1" data-edit="text" data-key="'+ak+'" data-att="'+ak+'"'+styleAttr(ak)+'><div class="cell">'+esc(val)+"</div></td>";
+      }
+
+      var nk = s.id+":note";
+      keyGrid[r+",11"] = nk;
+      var wkNote = hasNoteOverride(s);
+      html += '<td class="noteCell'+(wkNote?" wk":"")+'" data-r="'+r+'" data-c="11" data-sel="1" data-edit="text" data-key="'+nk+'" data-sid="'+s.id+'" data-field="note"'
+            + (wkNote?' title="이번 주에만 적어둔 내용입니다"':'')
+            + styleAttr(nk)+'><div class="cell">'+esc(noteFor(s))+"</div></td>";
+
+      html += '<td class="colmg"><button class="delbtn no-print" data-del="'+s.id+'" title="이 신청자 삭제">✕</button></td>';
+      html += "</tr>";
+    });
+
+    // 참석률
+    html += '<tr class="rate"><td colspan="6" class="lab">참석률 (신청자 대비)</td>';
+    for(var m=0;m<5;m++){
+      var isoM = toISO(dates[m]), exp = 0, got = 0;
+      state.students.forEach(function(s){
+        if(daysFor(s).indexOf(DAYS[m]) === -1) return;
+        exp++;
+        var v = state.attendance[attKey(s.id, isoM)] || "";
+        if(v && v.indexOf("참석") === 0) got++;
+      });
+      html += "<td>"+(exp ? Math.round(got/exp*100)+"% ("+got+"/"+exp+")" : "–")+"</td>";
+    }
+    html += "<td></td><td class='colmg'></td></tr>";
+    html += "</tbody>";
+
+    tbl.innerHTML = html;
+    document.getElementById("docTitle").textContent = state.title;
+    document.getElementById("docWeek").textContent = weekLabel()+"  ·  "+weekRange();
+    document.getElementById("weekLabel").innerHTML = weekLabel()+"<small>"+weekRange()+"</small>";
+
+    paintSelection();
+    positionPicker();
+    paintWeekJump();
+  }
+
+  function styleAttr(k){
+    var st = styleOf(k); if(!st) return "";
+    var s = "";
+    if(st.c) s += "color:"+st.c+";";
+    if(st.b) s += "background-color:"+st.b+";";
+    if(st.f) s += "font-size:"+st.f+";";
+    return s ? ' style="'+s+'"' : "";
+  }
+
+  /* ---------- selection ---------- */
+  function paintSelection(){
+    document.querySelectorAll("#tbl td.sel, #tbl th.sel").forEach(function(el){ el.classList.remove("sel"); });
+    selected.forEach(function(rc){
+      var p = rc.split(",");
+      var el = document.querySelector('#tbl [data-r="'+p[0]+'"][data-c="'+p[1]+'"]');
+      if(el) el.classList.add("sel");
+    });
+    var n = selected.size;
+    document.getElementById("selInfo").textContent = n ? (n+"칸 선택됨") : "선택된 칸 없음";
+  }
+  function selectRect(a, b, additive){
+    if(!additive) selected.clear();
+    var r1 = Math.min(a.r,b.r), r2 = Math.max(a.r,b.r);
+    var c1 = Math.min(a.c,b.c), c2 = Math.max(a.c,b.c);
+    for(var r=r1;r<=r2;r++) for(var c=c1;c<=c2;c++){
+      if(keyGrid[r+","+c]) selected.add(r+","+c);
+    }
+    paintSelection();
+  }
+  function selectedKeys(){
+    var out = [];
+    selected.forEach(function(rc){ if(keyGrid[rc]) out.push({rc:rc, key:keyGrid[rc]}); });
+    return out;
+  }
+
+  /* ---------- editing ---------- */
+  function cellEl(r,c){ return document.querySelector('#tbl [data-r="'+r+'"][data-c="'+c+'"]'); }
+
+  function startEdit(td, replaceWith){
+    if(!td || td.dataset.edit !== "text") return;
+    var inner = td.querySelector(".cell");
+    inner.setAttribute("autocapitalize","off");
+    inner.setAttribute("autocorrect","off");
+    inner.setAttribute("spellcheck","false");
+    editingKey = td.dataset.key;
+    td.classList.add("editing");
+    inner.setAttribute("contenteditable","true");
+    if(replaceWith != null) inner.textContent = replaceWith;
+    inner.focus();
+    var range = document.createRange();
+    range.selectNodeContents(inner);
+    if(replaceWith != null) range.collapse(false);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+
+    inner.oninput = function(){ writeValue(td, inner.textContent.trim()); save(); };
+    inner.onblur = function(){ commitEdit(td, inner); };
+    inner.onkeydown = function(ev){
+      if(ev.key === "Enter"){ ev.preventDefault(); inner.blur(); }
+      else if(ev.key === "Escape"){ ev.preventDefault(); editingKey = null; inner.onblur = null; inner.oninput = null; render(); }
+      ev.stopPropagation();
+    };
+  }
+  function commitEdit(td, inner){
+    if(editingKey === null) return;
+    var val = inner.textContent.replace(/\s+$/,"").replace(/^\s+/,"");
+    var isNote = td.dataset.field === "note" && td.dataset.sid;
+    var noteSid = isNote ? td.dataset.sid : null;
+    var noteBefore = null;
+    if(isNote){
+      var sOld = state.students.filter(function(x){ return x.id === noteSid; })[0];
+      noteBefore = sOld ? noteFor(sOld) : null;
+    }
+    writeValue(td, val);
+    if(isNote && noteBefore !== null && noteBefore !== val){
+      var wkNow = state.weekStart;
+      toast("이번 주 특이사항만 바뀌었어요 (다른 주는 그대로)", "모든 주에 적용", function(){
+        var s2 = state.students.filter(function(x){ return x.id === noteSid; })[0];
+        if(!s2) return;
+        s2.note = val;                       // 따로 적어두지 않은 주의 기본 문구가 된다
+        if(state.notes) delete state.notes[wkNow+"|"+noteSid];
+        save(); render();
+      });
+    }
+    editingKey = null;
+    inner.onblur = null; inner.oninput = null;
+    save();
+    setTimeout(render, 0);
+  }
+  function writeValue(td, val){
+    if(td.dataset.att){ 
+      if(val) state.attendance[td.dataset.att] = val; else delete state.attendance[td.dataset.att];
+      return;
+    }
+    if(td.dataset.field === "note" && td.dataset.sid){
+      if(!state.notes) state.notes = {};
+      state.notes[state.weekStart+"|"+td.dataset.sid] = val;   // 다른 주는 건드리지 않는다
+      return;
+    }
+    if(td.dataset.sid && td.dataset.field){
+      var s = state.students.filter(function(x){ return x.id === td.dataset.sid; })[0];
+      if(s) s[td.dataset.field] = val;
+      return;
+    }
+    var k = td.dataset.key;
+    if(k && k.indexOf("h") === 0 && k.indexOf("hd") !== 0){
+      var idx = parseInt(k.slice(1),10);
+      if(!isNaN(idx)) state.headers[idx] = val;
+    }
+  }
+  function clearSelectedValues(){
+    selectedKeys().forEach(function(o){
+      var p = o.rc.split(",");
+      var td = cellEl(p[0], p[1]);
+      if(td && td.dataset.edit === "text") writeValue(td, "");
+    });
+    save(); render();
+  }
+
+  /* ---------- day picker ---------- */
+  var pickerEl = null;
+  function openPicker(sid){
+    pickerFor = sid;
+    if(!pickerEl){
+      pickerEl = document.createElement("div");
+      pickerEl.className = "picker no-print";
+      document.body.appendChild(pickerEl);
+    }
+    drawPicker();
+    positionPicker();
+  }
+  function drawPicker(){
+    if(!pickerEl || !pickerFor) return;
+    var s = state.students.filter(function(x){ return x.id === pickerFor; })[0];
+    if(!s){ closePicker(); return; }
+    var eff = daysFor(s);
+    var wk = hasWeekOverride(pickerFor);
+    var chips = DAYS.map(function(d){
+      return '<button class="dchip'+(eff.indexOf(d)!==-1?" on":"")+'" data-day="'+d+'">'+d+"</button>";
+    }).join("");
+    pickerEl.innerHTML =
+      '<div class="ptitle"><b>'+esc(s.name || "신청자")+'</b> · '+esc(weekLabel())+' 신청요일'
+        + (wk ? ' <span style="color:var(--accent)">· 이 주만 변경됨</span>' : ' · 기본 요일 적용 중')
+        + '</div>'
+      + '<div class="prow">'+chips+'</div>'
+      + '<div class="pfoot">'
+        + '<button class="btn" data-basis="1" title="지금 고른 요일을 이 학생의 기본 요일로 저장합니다. 따로 바꾸지 않은 주에 적용됩니다">기본 요일로 저장</button>'
+        + '<button class="btn" data-revert="1"'+(wk?"":" disabled")+'>이 주만 되돌리기</button>'
+        + '<button class="btn ghost close" data-close="1">닫기</button>'
+      + '</div>';
+  }
+  function positionPicker(){
+    if(!pickerEl || !pickerFor){ if(pickerEl) pickerEl.style.display="none"; return; }
+    var td = document.querySelector('#tbl td.daysCell[data-sid="'+pickerFor+'"]');
+    if(!td){ closePicker(); return; }
+    pickerEl.style.display = "block";
+    var rc = td.getBoundingClientRect();
+    var ph = pickerEl.offsetHeight || 120;
+    var below = rc.bottom + 4, above = rc.top - ph - 4;
+    var top = (below + ph > window.innerHeight && above > 4 ? above : below) + window.scrollY;
+    var left = rc.left + window.scrollX;
+    pickerEl.style.top = top+"px";
+    pickerEl.style.left = Math.max(8, Math.min(left, window.innerWidth - pickerEl.offsetWidth - 14))+"px";
+  }
+  function closePicker(){
+    pickerFor = null;
+    if(pickerEl) pickerEl.style.display = "none";
+  }
+
+  /* ---------- toolbar build ---------- */
+  var toolbarBuilt = false;
+  function buildToolbar(){
+    if(toolbarBuilt) return;
+    toolbarBuilt = true;
+    var cg = document.getElementById("colorGrp");
+    TEXT_COLORS.forEach(function(c){
+      var b = document.createElement("button");
+      b.className = "swatch"; b.title = "글자색 "+c.n;
+      b.style.background = "#fff"; b.style.color = c.v;
+      b.textContent = "가"; b.style.fontWeight = "700";
+      b.onclick = function(){ applyToSelection({c:c.v}); };
+      cg.appendChild(b);
+    });
+    var bg = document.getElementById("bgGrp");
+    BG_COLORS.forEach(function(c){
+      var b = document.createElement("button");
+      b.className = "swatch"; b.title = "배경 "+c.n;
+      b.style.background = c.v;
+      b.onclick = function(){ applyToSelection({b:c.v}); };
+      bg.appendChild(b);
+    });
+    var none = document.createElement("button");
+    none.className = "swatch none"; none.title = "배경 없애기"; none.textContent = "✕";
+    none.onclick = function(){ applyToSelection({b:null}); };
+    bg.appendChild(none);
+
+    var fg = document.getElementById("fillGrp");
+    QUICK.forEach(function(q){
+      var b = document.createElement("button");
+      b.className = "chipbtn"; b.textContent = q;
+      b.onclick = function(){ fillSelection(q); };
+      fg.appendChild(b);
+    });
+    var er = document.createElement("button");
+    er.className = "chipbtn"; er.textContent = "비우기";
+    er.onclick = function(){ fillSelection(""); };
+    fg.appendChild(er);
+  }
+
+  function applyToSelection(patch){
+    var ks = selectedKeys();
+    if(!ks.length){ toast("먼저 바꿀 칸을 선택해 주세요"); return; }
+    ks.forEach(function(o){
+      var st = state.styles[o.key] || {};
+      if("c" in patch){ if(patch.c) st.c = patch.c; else delete st.c; }
+      if("b" in patch){ if(patch.b) st.b = patch.b; else delete st.b; }
+      if("f" in patch){ if(patch.f) st.f = patch.f; else delete st.f; }
+      if(Object.keys(st).length) state.styles[o.key] = st; else delete state.styles[o.key];
+    });
+    save(); render();
+  }
+  function fillSelection(val){
+    var ks = selectedKeys();
+    if(!ks.length){ toast("먼저 출결을 적을 칸을 선택해 주세요"); return; }
+    var touched = 0;
+    ks.forEach(function(o){
+      var p = o.rc.split(",");
+      var td = cellEl(p[0], p[1]);
+      if(td && td.dataset.att){
+        if(val) state.attendance[td.dataset.att] = val; else delete state.attendance[td.dataset.att];
+        touched++;
+      }
+    });
+    if(!touched){ toast("요일 칸을 선택하면 출결을 넣을 수 있어요"); return; }
+    save(); render();
+  }
+
+  /* ---------- toast ---------- */
+  function toast(msg, actionLabel, action){
+    var old = document.querySelector(".toast"); if(old) old.remove();
+    clearTimeout(toastTimer);
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.appendChild(document.createTextNode(msg));
+    if(actionLabel){
+      var b = document.createElement("button");
+      b.textContent = actionLabel;
+      b.onclick = function(){ action(); t.remove(); };
+      t.appendChild(b);
+    }
+    document.body.appendChild(t);
+    toastTimer = setTimeout(function(){ t.remove(); }, 5000);
+  }
+
+  /* ---------- events ---------- */
+  var tbl = document.getElementById("tbl");
+
+  /* ---------- 터치(아이패드 · 휴대폰) ---------- */
+  function commitOpenEdit(){
+    var open = document.querySelector('#tbl .cell[contenteditable="true"]');
+    if(open) open.blur();
+  }
+
+  // 스크롤은 늘 살려 두고, 움직이지 않은 '탭'만 선택으로 본다
+  tbl.addEventListener("touchstart", function(e){
+    touchStart = null;
+    if(e.touches.length !== 1) return;
+    if(e.target.closest("[data-del]")) return;                 // 삭제는 click 으로
+    if(e.target.closest('[contenteditable="true"]')) return;   // 편집 중인 칸은 그대로
+    var td = e.target.closest("[data-sel]");
+    if(!td) return;
+    var t = e.touches[0];
+    touchStart = {td:td, x:t.clientX, y:t.clientY, moved:false};
+  }, {passive:true});
+
+  tbl.addEventListener("touchmove", function(e){
+    if(!touchStart || e.touches.length !== 1) return;
+    var t = e.touches[0];
+    if(Math.abs(t.clientX - touchStart.x) > 10 || Math.abs(t.clientY - touchStart.y) > 10){
+      touchStart.moved = true;                                 // 표를 미는 중이니 탭이 아니다
+    }
+  }, {passive:true});
+
+  tbl.addEventListener("touchend", function(e){
+    var ts = touchStart; touchStart = null;
+    if(!ts || ts.moved) return;
+    var td = ts.td;
+    if(!td || !td.isConnected) return;
+
+    e.preventDefault();                                        // 뒤따르는 가짜 마우스 이벤트 차단
+    commitOpenEdit();
+    var r = +td.dataset.r, c = +td.dataset.c, rc = r+","+c;
+
+    if(multiMode){
+      anchor = {r:r, c:c};
+      if(selected.has(rc)) selected.delete(rc); else selected.add(rc);
+      paintSelection();
+      return;
+    }
+
+    if(td.dataset.edit === "days"){
+      anchor = {r:r, c:c}; selected.clear(); selected.add(rc); paintSelection();
+      openPicker(td.dataset.sid);
+      return;
+    }
+    if(pickerFor) closePicker();
+
+    var wasOnly = selected.size === 1 && selected.has(rc);
+    if(wasOnly && td.dataset.edit === "text"){
+      startEdit(td);                                           // 고른 칸을 한 번 더 누르면 편집
+    } else {
+      anchor = {r:r, c:c}; selected.clear(); selected.add(rc); paintSelection();
+    }
+  }, {passive:false});
+
+  // 표 밖을 누르면 요일 고르기 창을 닫는다
+  document.addEventListener("touchstart", function(e){
+    if(!pickerFor) return;
+    if(e.target.closest(".picker") || e.target.closest("td.daysCell")) return;
+    closePicker();
+  }, {passive:true});
+
+  tbl.addEventListener("mousedown", function(e){
+    var del = e.target.closest("[data-del]");
+    if(del){ removeStudent(del.getAttribute("data-del")); return; }
+
+    var td = e.target.closest("[data-sel]");
+    if(!td) return;
+    if(td.querySelector('[contenteditable="true"]')) return;
+
+    // 다른 칸을 편집 중이었다면 먼저 저장한다 (아래 preventDefault가 blur를 막기 때문)
+    var open = document.querySelector('#tbl .cell[contenteditable="true"]');
+    if(open) open.blur();
+
+    e.preventDefault();
+    var pos = {r:+td.dataset.r, c:+td.dataset.c};
+    if(e.shiftKey && anchor){
+      selectRect(anchor, pos, false);
+    } else if(e.metaKey || e.ctrlKey){
+      var rc = pos.r+","+pos.c;
+      if(selected.has(rc)) selected.delete(rc); else selected.add(rc);
+      anchor = pos; paintSelection();
+    } else {
+      anchor = pos;
+      selected.clear(); selected.add(pos.r+","+pos.c);
+      paintSelection();
+      dragging = true;
+    }
+    if(td.dataset.edit === "days" && !(e.shiftKey||e.metaKey||e.ctrlKey)){
+      openPicker(td.dataset.sid);
+    } else if(pickerFor){
+      closePicker();
+    }
+    tbl.focus();
+  });
+
+  tbl.addEventListener("mouseover", function(e){
+    if(!dragging) return;
+    var td = e.target.closest("[data-sel]");
+    if(!td || !anchor) return;
+    selectRect(anchor, {r:+td.dataset.r, c:+td.dataset.c}, false);
+  });
+  document.addEventListener("mouseup", function(){ dragging = false; });
+
+  tbl.addEventListener("dblclick", function(e){
+    var td = e.target.closest('[data-edit="text"]');
+    if(td) startEdit(td);
+  });
+
+  /* ---------- 여러 칸 선택 켜고 끄기 ---------- */
+  document.getElementById("editBtn").onclick = function(){
+    if(!anchor || !selected.size){ toast("먼저 고칠 칸을 눌러 주세요"); return; }
+    var td = cellEl(anchor.r, anchor.c);
+    if(!td){ toast("먼저 고칠 칸을 눌러 주세요"); return; }
+    if(td.dataset.edit === "days"){ openPicker(td.dataset.sid); return; }
+    if(td.dataset.edit !== "text"){ toast("이 칸은 글자를 고칠 수 없어요"); return; }
+    startEdit(td);
+  };
+
+  var multiBtn = document.getElementById("multiBtn");
+  function paintMultiBtn(){
+    multiBtn.classList.toggle("on", multiMode);
+    document.body.classList.toggle("multiselect", multiMode);
+    multiBtn.textContent = multiMode ? "여러 칸 선택 중" : "여러 칸 선택";
+  }
+  multiBtn.onclick = function(){
+    multiMode = !multiMode;
+    paintMultiBtn();
+    toast(multiMode
+      ? "칸을 하나씩 눌러 담으세요. 다 고르면 글자색·크기·배경·출결을 한 번에 바꿀 수 있어요"
+      : "여러 칸 선택을 껐어요. 이제 누르면 한 칸만 골라집니다");
+  };
+  paintMultiBtn();
+
+  document.addEventListener("keydown", function(e){
+    if(editingKey !== null) return;
+    if(e.target.isContentEditable) return;
+    if(!anchor || !selected.size) return;
+
+    if(e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); clearSelectedValues(); return; }
+    if(e.key === "Escape"){ selected.clear(); paintSelection(); closePicker(); return; }
+    if(e.key === "Enter" || e.key === "F2"){
+      e.preventDefault();
+      startEdit(cellEl(anchor.r, anchor.c));
+      return;
+    }
+    var dr = 0, dc = 0;
+    if(e.key === "ArrowUp") dr = -1;
+    else if(e.key === "ArrowDown") dr = 1;
+    else if(e.key === "ArrowLeft") dc = -1;
+    else if(e.key === "ArrowRight") dc = 1;
+    if(dr || dc){
+      e.preventDefault();
+      var r = anchor.r + dr, c = anchor.c + dc;
+      while(!keyGrid[r+","+c] && c >= 1 && c <= 11 && r >= 0){
+        if(dc) c += dc; else break;
+      }
+      if(!keyGrid[r+","+c]) return;
+      var np = {r:r, c:c};
+      if(e.shiftKey) selectRect(anchor, np, false);
+      else { anchor = np; selected.clear(); selected.add(r+","+c); paintSelection(); }
+      return;
+    }
+    if(e.key.length === 1 && !e.ctrlKey && !e.metaKey){
+      var td = cellEl(anchor.r, anchor.c);
+      if(td && td.dataset.edit === "text"){ e.preventDefault(); startEdit(td, e.key); }
+    }
+  });
+
+  document.addEventListener("mousedown", function(e){
+    if(pickerEl && (e.target.closest(".picker") || e.target.closest("td.daysCell"))) return;
+    if(pickerFor) closePicker();
+  });
+  document.addEventListener("click", function(e){
+    if(!pickerEl) return;
+    var d = e.target.closest("[data-day]");
+    if(d && pickerFor){
+      var s = state.students.filter(function(x){ return x.id === pickerFor; })[0];
+      if(s){
+        var day = d.getAttribute("data-day");
+        var next = daysFor(s).slice();
+        var i = next.indexOf(day);
+        if(i === -1) next.push(day); else next.splice(i,1);
+        next.sort(function(a,b){ return DAYS.indexOf(a) - DAYS.indexOf(b); });
+        setWeekDays(s.id, next);          // 이번 주에만 반영
+        save(); render(); drawPicker();
+      }
+      return;
+    }
+    if(e.target.closest("[data-basis]") && pickerFor){
+      var s2 = state.students.filter(function(x){ return x.id === pickerFor; })[0];
+      if(s2){
+        s2.days = daysFor(s2).slice();
+        delete state.weekDays[wdKey(s2.id)];
+        save(); render(); drawPicker();
+        toast("기본 신청요일로 저장했어요. 따로 바꾸지 않은 주에 모두 적용됩니다");
+      }
+      return;
+    }
+    if(e.target.closest("[data-revert]") && pickerFor){
+      if(state.weekDays) delete state.weekDays[wdKey(pickerFor)];
+      save(); render(); drawPicker();
+      return;
+    }
+    if(e.target.closest("[data-close]")) closePicker();
+  });
+
+  window.addEventListener("scroll", positionPicker, {passive:true});
+  window.addEventListener("resize", positionPicker);
+
+  // 문서 제목도 수정 가능
+  var docTitle = document.getElementById("docTitle");
+  docTitle.setAttribute("contenteditable","true");
+  docTitle.addEventListener("input", function(){
+    var t = docTitle.textContent.trim();
+    if(t) { state.title = t; save(); }
+  });
+  docTitle.addEventListener("blur", function(){
+    state.title = docTitle.textContent.trim() || state.title;
+    save();
+  });
+  docTitle.addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); docTitle.blur(); } });
+
+  /* ---------- students ---------- */
+  function removeStudent(sid){
+    var idx = -1;
+    state.students.forEach(function(s,i){ if(s.id === sid) idx = i; });
+    if(idx === -1) return;
+    var removed = state.students[idx];
+    var att = {};
+    Object.keys(state.attendance).forEach(function(k){
+      if(k.indexOf(sid+"|") === 0){ att[k] = state.attendance[k]; delete state.attendance[k]; }
+    });
+    var nts = {};
+    Object.keys(state.notes || {}).forEach(function(k){
+      if(k.split("|")[1] === sid){ nts[k] = state.notes[k]; delete state.notes[k]; }
+    });
+    var wds = {};
+    Object.keys(state.weekDays || {}).forEach(function(k){
+      if(k.indexOf("|"+sid) === k.length - sid.length - 1){ wds[k] = state.weekDays[k]; delete state.weekDays[k]; }
+    });
+    undoBuf = {idx:idx, student:removed, att:att, wds:wds, nts:nts};
+    state.students.splice(idx,1);
+    selected.clear(); anchor = null; closePicker();
+    save(); render();
+    toast((removed.name || "신청자")+" 님을 명단에서 뺐어요", "되돌리기", function(){
+      state.students.splice(undoBuf.idx, 0, undoBuf.student);
+      Object.keys(undoBuf.att).forEach(function(k){ state.attendance[k] = undoBuf.att[k]; });
+      Object.keys(undoBuf.wds).forEach(function(k){ state.weekDays[k] = undoBuf.wds[k]; });
+      Object.keys(undoBuf.nts || {}).forEach(function(k){ state.notes[k] = undoBuf.nts[k]; });
+      undoBuf = null; save(); render();
+    });
+  }
+
+  document.getElementById("addStudent").onclick = function(){
+    state.seq++;
+    var nid = "s"+state.seq+"_"+Date.now().toString(36);
+    state.students.push({id:nid, teacher:"", name:"새 신청자", grade:"", school:"", days:[], note:""});
+    save(); render();
+    var r = indexOfStudent(nid) + 1;   // 정렬 후 실제 자리를 다시 찾는다
+    anchor = {r:r, c:1}; selected.clear(); selected.add(r+",1"); paintSelection();
+    var td = cellEl(r,1); if(td){ td.scrollIntoView({block:"nearest"}); startEdit(td, ""); }
+  };
+
+  var sortBtn = document.getElementById("sortDir");
+  function paintSortBtn(){
+    sortBtn.textContent = "번호 순서: 학년 " + (state.sortAsc ? "낮은 순" : "높은 순");
+  }
+  sortBtn.onclick = function(){
+    state.sortAsc = !state.sortAsc;
+    selected.clear(); anchor = null; closePicker();
+    paintSortBtn(); save(); render();
+  };
+
+  document.getElementById("resetAll").onclick = function(){
+    var backup = JSON.parse(JSON.stringify(state));
+    state = freshState();
+    state.sortAsc = backup.sortAsc;
+    state.orient = backup.orient;
+    selected.clear(); anchor = null; closePicker();
+    save(); render();
+    toast("처음 신청자 명단으로 되돌렸어요", "취소", function(){
+      state = backup; save(); render();
+    });
+  };
+
+  /* ---------- week nav / print ---------- */
+  function shiftWeek(n){
+    var mon = addDays(parseISO(state.weekStart), n*7);
+    state.weekStart = toISO(mon);
+    selected.clear(); anchor = null; closePicker();
+    save(); render();
+  }
+  document.getElementById("prevWeek").onclick = function(){ shiftWeek(-1); };
+  document.getElementById("nextWeek").onclick = function(){ shiftWeek(1); };
+  var orient = document.getElementById("orient");
+  orient.onchange = function(){
+    document.getElementById("pageStyle").textContent =
+      "@page{size:A4 "+this.value+";margin:11mm 10mm}";
+    document.body.classList.toggle("portrait", this.value === "portrait");
+    state.orient = this.value; save();
+  };
+  document.getElementById("saveBtn").onclick = function(){
+    var open = document.querySelector('#tbl .cell[contenteditable="true"]');
+    if(open) open.blur();                       // 편집 중이던 칸도 먼저 반영
+    setTimeout(function(){
+      saveForce().then(function(ok){
+        toast(ok ? "저장했어요 · "+stamp()+" · 다음에 열면 이 상태로 이어집니다"
+                 : "이 창에서는 저장이 안 돼요. 「기록 백업 · 복원」에서 파일로 받아두세요");
+      });
+    }, 0);
+  };
+  document.addEventListener("keydown", function(e){
+    if((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")){
+      e.preventDefault();
+      document.getElementById("saveBtn").click();
+    }
+  });
+
+  document.getElementById("printBtn").onclick = function(){
+    selected.clear(); paintSelection(); closePicker();
+    setTimeout(function(){ window.print(); }, 60);
+  };
+  document.getElementById("fontSize").onchange = function(){
+    if(!this.value) return;
+    applyToSelection({f: this.value === "reset" ? null : this.value});
+    this.selectedIndex = 0;
+  };
+  document.getElementById("clearFmt").onclick = function(){
+    var ks = selectedKeys();
+    if(!ks.length){ toast("서식을 지울 칸을 선택해 주세요"); return; }
+    ks.forEach(function(o){ delete state.styles[o.key]; });
+    save(); render();
+  };
+
+  /* ---------- 날짜별 자동 보관본 ---------- */
+  var SNAP_KEEP = 14;
+
+  function snapshotToday(data){
+    if(!B) return;
+    var today = toISO(new Date());
+    B.listSnaps().then(function(ids){
+      if(ids.indexOf(today) !== -1) return;              // 오늘 것은 이미 있다
+      return B.putSnap(today, data).then(function(){
+        var all = ids.concat([today]).sort();
+        all.slice(0, Math.max(0, all.length - SNAP_KEEP)).forEach(function(id){
+          B.deleteSnap(id);
+        });
+      });
+    }).catch(function(){});
+  }
+
+  function applyNotesFrom(parsed){
+    if(!parsed || !Array.isArray(parsed.students)) return 0;
+    var before = JSON.parse(JSON.stringify({students:state.students, notes:state.notes}));
+    var n = 0;
+    parsed.students.forEach(function(ps){
+      var cur = null;
+      state.students.forEach(function(cs){
+        if(cs.id === ps.id) cur = cs;
+      });
+      if(!cur){
+        state.students.forEach(function(cs){
+          if(!cur && cs.name && ps.name && cs.name === ps.name) cur = cs;
+        });
+      }
+      if(!cur) return;
+      if(typeof ps.note === "string" && ps.note !== (cur.note || "")){ cur.note = ps.note; n++; }
+    });
+    // 예전 백업에 주차별 특이사항이 들어 있으면, 지금 비어 있는 주만 채운다
+    Object.keys(parsed.notes || {}).forEach(function(k){
+      if(!state.notes) state.notes = {};
+      if(!Object.prototype.hasOwnProperty.call(state.notes, k)){ state.notes[k] = parsed.notes[k]; n++; }
+    });
+    if(n){
+      save(); render();
+      toast(n+"건의 특이사항을 되살렸어요", "되돌리기", function(){
+        state.students = before.students; state.notes = before.notes;
+        save(); render();
+      });
+    } else {
+      toast("이 백업에서 새로 가져올 특이사항이 없어요");
+    }
+    return n;
+  }
+
+  function paintSnaps(){
+    var box = document.getElementById("snapList");
+    if(!box) return;
+    if(!B){ box.textContent = "로그인하면 자동 보관본을 쓸 수 있습니다."; return; }
+    box.textContent = "불러오는 중…";
+    B.listSnaps().then(function(ids){
+      ids = ids.slice().sort().reverse();
+      if(!ids.length){
+        box.textContent = "아직 보관본이 없습니다. 오늘부터 하루에 하나씩 쌓입니다.";
+        return;
+      }
+      box.innerHTML = ids.map(function(id){
+        return '<div class="snaprow"><span class="d">' + esc(id) + '</span>'
+             + '<button class="btn" data-snapnote="' + esc(id) + '">특이사항만 가져오기</button>'
+             + '<button class="btn" data-snapall="' + esc(id) + '">전체 되살리기</button></div>';
+      }).join("");
+    }).catch(function(){ box.textContent = "보관본을 불러오지 못했습니다."; });
+  }
+
+  function readSnap(id, cb){
+    if(!B){ toast("로그인이 필요해요"); return; }
+    B.getSnap(id).then(function(parsed){
+      if(!parsed){ toast("보관본을 읽지 못했어요"); return; }
+      cb(parsed);
+    }).catch(function(){ toast("보관본을 읽지 못했어요"); });
+  }
+
+  /* ---------- 백업 · 복원 ---------- */
+  var modal = document.getElementById("backupModal");
+  function openBackup(){
+    saveNow();
+    document.getElementById("backupText").value = JSON.stringify(state);
+    document.getElementById("restoreText").value = "";
+    document.getElementById("restoreFile").value = "";
+    var weeks = recordedWeeks();
+    document.getElementById("archiveInfo").innerHTML =
+      "지금 쌓여 있는 기록 · 신청자 <b>"+state.students.length+"명</b> · 자료가 있는 주 <b>"+weeks.length+"주</b>"
+      + (weeks.length ? "<br>가장 오래된 주 "+labelForWeek(weeks[weeks.length-1])+" · 가장 최근 주 "+labelForWeek(weeks[0]) : "");
+    paintSnaps();
+    modal.hidden = false;
+  }
+  function closeBackup(){ modal.hidden = true; }
+  document.getElementById("backupBtn").onclick = openBackup;
+  document.getElementById("closeBackup").onclick = closeBackup;
+  modal.addEventListener("mousedown", function(e){ if(e.target === modal) closeBackup(); });
+  document.getElementById("selBackup").onclick = function(){
+    var t = document.getElementById("backupText"); t.focus(); t.select();
+    toast("전체를 골랐어요. Ctrl(⌘)+C로 복사하세요");
+  };
+  document.getElementById("dlBackup").onclick = function(){
+    try{
+      var name = "출석부_백업_" + toISO(new Date()) + ".json";
+      var blob = new Blob([document.getElementById("backupText").value], {type:"application/json"});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+      toast(name+" 으로 받았어요");
+    }catch(e){
+      toast("이 창에서는 내려받기가 막혀 있어요. 위 내용을 복사해 두세요");
+    }
+  };
+  document.getElementById("restoreFile").onchange = function(){
+    var f = this.files && this.files[0];
+    if(!f) return;
+    var fr = new FileReader();
+    fr.onload = function(){ document.getElementById("restoreText").value = String(fr.result || ""); };
+    fr.readAsText(f);
+  };
+  document.getElementById("doRestore").onclick = function(){
+    var raw = document.getElementById("restoreText").value.trim();
+    if(!raw){ toast("되살릴 백업 내용이 없어요"); return; }
+    var parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){ toast("백업 내용을 읽지 못했어요. 파일 전체를 붙여넣었는지 확인해 주세요"); return; }
+    if(!parsed || !Array.isArray(parsed.students)){ toast("출석부 백업이 아닌 것 같아요"); return; }
+    var before = JSON.parse(JSON.stringify(state));
+    state = parsed;
+    if(!state.weekDays) state.weekDays = {};
+    if(!state.notes) state.notes = {};
+    if(!state.attendance) state.attendance = {};
+    if(!state.styles) state.styles = {};
+    if(!state.weekStart) state.weekStart = TERM_START;
+    selected.clear(); anchor = null; closePicker(); closeBackup();
+    paintSortBtn(); save(); render();
+    toast("백업을 되살렸어요", "되돌리기", function(){
+      state = before; save(); render();
+    });
+  };
+
+  document.getElementById("doRestoreNotes").onclick = function(){
+    var raw = document.getElementById("restoreText").value.trim();
+    if(!raw){ toast("먼저 백업 파일을 고르거나 내용을 붙여넣어 주세요"); return; }
+    var parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){ toast("백업 내용을 읽지 못했어요"); return; }
+    if(!parsed || !Array.isArray(parsed.students)){ toast("출석부 백업이 아닌 것 같아요"); return; }
+    closeBackup();
+    applyNotesFrom(parsed);
+  };
+
+  document.getElementById("snapList").addEventListener("click", function(e){
+    var a = e.target.closest("[data-snapnote]");
+    if(a){
+      closeBackup();
+      readSnap(a.getAttribute("data-snapnote"), function(parsed){ applyNotesFrom(parsed); });
+      return;
+    }
+    var b = e.target.closest("[data-snapall]");
+    if(b){
+      var key = b.getAttribute("data-snapall");
+      readSnap(key, function(parsed){
+        if(!parsed || !Array.isArray(parsed.students)){ toast("보관본이 온전하지 않아요"); return; }
+        var before = JSON.parse(JSON.stringify(state));
+        state = parsed;
+        if(!state.weekDays) state.weekDays = {};
+        if(!state.notes) state.notes = {};
+        if(!state.attendance) state.attendance = {};
+        if(!state.styles) state.styles = {};
+        if(!state.weekStart) state.weekStart = TERM_START;
+        selected.clear(); anchor = null; closePicker(); closeBackup();
+        paintSortBtn(); save(); render();
+        toast(key+" 보관본으로 되살렸어요", "되돌리기", function(){
+          state = before; save(); render();
+        });
+      });
+    }
+  });
+
+  document.getElementById("weekJump").onchange = function(){
+    if(!this.value) return;
+    state.weekStart = this.value;
+    selected.clear(); anchor = null; closePicker();
+    save(); render();
+  };
+
+  /* ---------- 시작 ---------- */
+  function paintAll(){
+    buildToolbar();
+    paintSortBtn();
+    paintMultiBtn();
+    if(state.orient === "portrait"){ orient.value = "portrait"; orient.onchange.call(orient); }
+    else { orient.value = "landscape"; }
+    render();
+  }
+
+  var gate = document.getElementById("gate");
+  var API = null;
+  var booted = false;
+
+  function showGate(mode, msg){
+    gate.hidden = false;
+    ["gateSetup","gateLogin","gateWait"].forEach(function(id){
+      document.getElementById(id).hidden = (id !== mode);
+    });
+    var e = document.getElementById("loginErr");
+    if(msg){ e.textContent = msg; e.hidden = false; } else { e.hidden = true; }
+  }
+  function hideGate(){ gate.hidden = true; }
+
+  function loadEverything(){
+    showGate("gateWait");
+    return B.loadAll().then(function(res){
+      state = stateFromDocs(res.meta, res.weeks);
+      loadedFromStore = !!res.meta;
+      primeLastSaved();
+      paintAll(); booted = true;
+      hideGate();
+      if(loadedFromStore){
+        snapshotToday(JSON.parse(JSON.stringify(state)));
+        setBadge("ok", "기록 불러옴 · "+stamp());
+      } else {
+        setBadge("ok", "새 출석부입니다 · 명단을 추가하거나 백업을 불러오세요");
+      }
+      if(!state.students.length){
+        toast("명단이 비어 있어요. 「+ 신청자 추가」로 넣거나, 「기록 백업 · 복원」에서 백업 파일을 불러오세요");
+      }
+    }).catch(function(err){
+      showGate("gateLogin", "기록을 불러오지 못했습니다. 잠시 뒤 다시 로그인해 주세요.");
+      try{ console.error(err); }catch(e){}
+    });
+  }
+
+  document.getElementById("logoutBtn").onclick = function(){
+    saveNow();
+    if(API) API.signOut();
+  };
+  document.getElementById("loginForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var em = document.getElementById("loginEmail").value.trim();
+    var pw = document.getElementById("loginPw").value;
+    var btn = document.getElementById("loginBtn");
+    var err = document.getElementById("loginErr");
+    err.hidden = true;
+    btn.disabled = true; btn.textContent = "확인 중…";
+    if(!API){ btn.disabled = false; btn.textContent = "로그인"; return; }
+    API.signIn(em, pw).catch(function(e2){
+      var code = (e2 && e2.code) || "";
+      var msg = "로그인하지 못했습니다. 이메일과 비밀번호를 확인해 주세요.";
+      if(code.indexOf("network") !== -1) msg = "인터넷 연결을 확인해 주세요.";
+      if(code.indexOf("too-many") !== -1) msg = "시도가 많았습니다. 잠시 뒤에 다시 해주세요.";
+      err.textContent = msg; err.hidden = false;
+    }).then(function(){
+      btn.disabled = false; btn.textContent = "로그인";
+    });
+  });
+
+  paintAll();          // 로그인 전에도 빈 표를 먼저 그려 둔다
+  showGate("gateWait");
+
+  window.SGReady.then(function(api){
+    if(!api || !api.configured){
+      showGate("gateSetup");
+      return;
+    }
+    API = api;
+    api.onAuth(function(user){
+      if(user){
+        B = api;
+        document.getElementById("whoami").textContent = user.email || "";
+        document.getElementById("logoutBtn").hidden = false;
+        loadEverything();
+      } else {
+        B = null;
+        document.getElementById("logoutBtn").hidden = true;
+        document.getElementById("whoami").textContent = "";
+        showGate("gateLogin");
+      }
+    });
+  });
+})();
+</script>
+
+<script type="module">
+/* =====================================================================
+   Firebase 설정 — 아래 다섯 줄만 본인 값으로 바꾸면 됩니다.
+   Firebase 콘솔 > 프로젝트 설정 > 내 앱 > SDK 설정 및 구성 에서 복사하세요.
+   (같은 폴더 README.md 에 순서대로 적어두었습니다.)
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDI0u6B8x3qmtmsNxEoNs3k1nvS8K8MhUA",
+  authDomain: "studygroup-roll.firebaseapp.com",
+  projectId: "studygroup-roll",
+  storageBucket: "studygroup-roll.firebasestorage.app",
+  messagingSenderId: "404731549681",
+  appId: "1:404731549681:web:ef91c290c837abb7e1d650"
+};
+/* ===================================================================== */
+
+const SDK = "https://www.gstatic.com/firebasejs/10.12.5/";
+const configured = !/여기에_/.test(firebaseConfig.apiKey);
+
+if(!configured){
+  window.SGResolve({configured:false});
+} else {
+  try{
+    const { initializeApp } = await import(SDK + "firebase-app.js");
+    const { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+            setPersistence, browserLocalPersistence } = await import(SDK + "firebase-auth.js");
+    const fs = await import(SDK + "firebase-firestore.js");
+
+    const app  = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    try{ await setPersistence(auth, browserLocalPersistence); }catch(e){}
+
+    // 오프라인 캐시 : 인터넷이 끊겨도 입력이 되고, 연결되면 알아서 올라간다
+    let db;
+    try{
+      db = fs.initializeFirestore(app, {
+        localCache: fs.persistentLocalCache({ tabManager: fs.persistentSingleTabManager({}) })
+      });
+    }catch(e){
+      db = fs.getFirestore(app);
+    }
+
+    let uid = null;
+    const metaRef  = () => fs.doc(db, "users", uid, "data", "meta");
+    const weekRef  = (iso) => fs.doc(db, "users", uid, "weeks", iso);
+    const snapRef  = (id)  => fs.doc(db, "users", uid, "snapshots", id);
+    const weeksCol = () => fs.collection(db, "users", uid, "weeks");
+    const snapsCol = () => fs.collection(db, "users", uid, "snapshots");
+
+    window.SGResolve({
+      configured: true,
+
+      onAuth(cb){
+        onAuthStateChanged(auth, (u) => { uid = u ? u.uid : null; cb(u); });
+      },
+      signIn(email, pw){ return signInWithEmailAndPassword(auth, email, pw); },
+      signOut(){ return signOut(auth); },
+
+      async loadAll(){
+        const [metaSnap, weekSnaps] = await Promise.all([
+          fs.getDoc(metaRef()),
+          fs.getDocs(weeksCol())
+        ]);
+        const weeks = {};
+        weekSnaps.forEach((d) => { weeks[d.id] = d.data(); });
+        return { meta: metaSnap.exists() ? metaSnap.data() : null, weeks };
+      },
+      saveMeta(obj){ return fs.setDoc(metaRef(), Object.assign({}, obj, {savedAt: Date.now()})); },
+      saveWeek(iso, obj){ return fs.setDoc(weekRef(iso), Object.assign({}, obj, {savedAt: Date.now()})); },
+      deleteWeek(iso){ return fs.deleteDoc(weekRef(iso)); },
+
+      async listSnaps(){
+        const s = await fs.getDocs(snapsCol());
+        const ids = []; s.forEach((d) => ids.push(d.id));
+        return ids;
+      },
+      async getSnap(id){
+        const d = await fs.getDoc(snapRef(id));
+        if(!d.exists()) return null;
+        const body = d.data();
+        try{ return JSON.parse(body.json); }catch(e){ return null; }
+      },
+      putSnap(id, data){ return fs.setDoc(snapRef(id), {json: JSON.stringify(data), savedAt: Date.now()}); },
+      deleteSnap(id){ return fs.deleteDoc(snapRef(id)); }
+    });
+  }catch(err){
+    console.error("Firebase 연결 실패", err);
+    window.SGResolve({configured:false});
+  }
+}
+</script>
+
+<script>
+  // 홈 화면에 추가했을 때 앱처럼 열리도록
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("./sw.js").catch(function(){});
+    });
+  }
+</script>
