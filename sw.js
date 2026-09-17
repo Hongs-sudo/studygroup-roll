@@ -1,7 +1,7 @@
 /* 홈 화면에 추가했을 때 앱처럼 열리게 하고, 화면 자체는 오프라인에서도 뜨게 한다.
    출결 자료는 Firestore 의 오프라인 캐시가 따로 맡는다. */
 
-const CACHE = "sg-attendance-v1";
+const CACHE = "sg-attendance-v2";
 const SHELL = [
   "./",
   "./index.html",
@@ -9,7 +9,8 @@ const SHELL = [
   "./favicon.png",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-maskable-512.png"
+  "./icon-maskable-512.png",
+  "./brand-192.png"
 ];
 
 self.addEventListener("install", (e) => {
